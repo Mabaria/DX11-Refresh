@@ -4,8 +4,12 @@
 #include "framework.h"
 #include "DX11-Refresh.h"
 #include <d3d11.h>
+#include <iostream>
 
 
+
+#define windowWidth 1200
+#define windowHeight 800
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -28,8 +32,85 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: Place code here.
+	ID3D11Device* device;
+	ID3D11DeviceContext* deviceContext;
+	HRESULT hr = D3D11CreateDevice(
+		NULL,
+		D3D_DRIVER_TYPE_HARDWARE,
+		NULL,
+		D3D11_CREATE_DEVICE_DEBUG || D3D11_CREATE_DEVICE_SINGLETHREADED,
+		NULL,
+		0,
+		D3D11_SDK_VERSION,
+		&device,
+		NULL,
+		&deviceContext
+	);
 
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3D11CreateDevice failed.", 0, 0);
+		return false;
+	}
 
+	DXGI_MODE_DESC modeDesc;
+	modeDesc.Width = windowWidth;
+	modeDesc.Height = windowHeight;
+	modeDesc.RefreshRate.Numerator = 144;
+	modeDesc.RefreshRate.Denominator = 1;
+	modeDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	modeDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	modeDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+
+	UINT numQualityLevels = 0;
+	device->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM, 4, &numQualityLevels);
+
+	// Initialize global strings
+	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_DX11REFRESH, szWindowClass, MAX_LOADSTRING);
+	MyRegisterClass(hInstance);
+
+	// Perform application initialization:
+	if (!InitInstance(hInstance, nCmdShow))
+	{
+		return FALSE;
+	}
+
+	DXGI_SWAP_CHAIN_DESC swapChainDesc;
+	swapChainDesc.BufferDesc = modeDesc;
+	swapChainDesc.SampleDesc.Count = 4;
+	swapChainDesc.SampleDesc.Quality = numQualityLevels-1;
+	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc.BufferCount = 1;
+	swapChainDesc.Windowed = true;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	swapChainDesc.Flags = 0;
+	swapChainDesc.OutputWindow = GetActiveWindow();
+	//AllocConsole();
+	IDXGIDevice* dxgiDevice = 0;
+	device->QueryInterface(__uuidof(IDXGIDevice),
+		(void**)&dxgiDevice);
+
+	IDXGIAdapter* dxgiAdapter = 0;
+	dxgiDevice->GetAdapter(&dxgiAdapter);
+
+	IDXGIFactory* dxgiFactory = 0;
+	dxgiAdapter->GetParent(__uuidof(IDXGIFactory),
+		(void**)&dxgiFactory);
+
+	dxgiDevice->Release();
+	dxgiAdapter->Release();
+	dxgiFactory->Release();
+
+	IDXGISwapChain* swapChain;
+	hr = dxgiFactory->CreateSwapChain(device, &swapChainDesc, &swapChain);
+
+	ID3D11RenderTargetView* mRenderTargetView;
+	ID3D11Texture2D* backBuffer;
+	swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+		reinterpret_cast<void**>(&backBuffer));
+	device->CreateRenderTargetView(backBuffer, 0, &mRenderTargetView);
+	backBuffer->Release();
 
 
 
@@ -41,16 +122,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// -----------------------------------
 
-    // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_DX11REFRESH, szWindowClass, MAX_LOADSTRING);
-    MyRegisterClass(hInstance);
 
-    // Perform application initialization:
-    if (!InitInstance (hInstance, nCmdShow))
-    {
-        return FALSE;
-    }
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_DX11REFRESH));
 
@@ -112,7 +184,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+      CW_USEDEFAULT, 0, windowWidth, windowHeight, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
@@ -192,3 +264,4 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return (INT_PTR)FALSE;
 }
+
