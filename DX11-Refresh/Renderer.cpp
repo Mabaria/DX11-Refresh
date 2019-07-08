@@ -4,6 +4,8 @@ Renderer::Renderer()
 {
 	this->Init();
 	this->CreateShadersAndInputLayout();
+	this->CreateConstantBuffers();
+	this->CreateVertexBuffers();
 }
 
 Renderer::~Renderer()
@@ -16,8 +18,25 @@ void Renderer::Frame()
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
+	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
+	this->mDeviceContext->ClearDepthStencilView(
+		this->mDepthStencilView,
+		D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+		1.0f,
+		0
+	);
+	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
+
+	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
+	this->mDeviceContext->RSSetState(this->mRasterState);
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
+	// Set the WVP buffer.
+	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 	this->mDeviceContext->Draw(8, 0);
+
+
+	HRESULT hr = this->mSwapChain->Present(1, 0);
 }
 
 bool Renderer::Init()
@@ -45,6 +64,8 @@ bool Renderer::Init()
 	HWND activeWindow = GetActiveWindow();
 	RECT activeWindowRect;
 	GetWindowRect(activeWindow, &activeWindowRect);
+
+	this->mAspectRatio = (float)(activeWindowRect.right - activeWindowRect.left) / (float)(activeWindowRect.bottom - activeWindowRect.top);
 
 	DXGI_MODE_DESC modeDesc;
 	modeDesc.Width						= activeWindowRect.right - activeWindowRect.left;
@@ -188,6 +209,26 @@ bool Renderer::CreateVertexBuffers()
 		&vinitData,
 		&CubeVertexBuffer
 	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateBuffer for cube vertex buffer failed", 0, 0);
+		return false;
+	}
+
+	D3D11_RASTERIZER_DESC rsDesc;
+	ZeroMemory(&rsDesc, sizeof(D3D11_RASTERIZER_DESC));
+	rsDesc.FillMode = D3D11_FILL_SOLID;
+	rsDesc.CullMode = D3D11_CULL_NONE;
+	rsDesc.FrontCounterClockwise = false;
+	rsDesc.DepthClipEnable = true;
+	hr = mDevice->CreateRasterizerState(&rsDesc, &mRasterState);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateRasterizerState failed", 0, 0);
+		return false;
+	}
+
 	return true;
 }
 
@@ -275,5 +316,50 @@ bool Renderer::CreateShadersAndInputLayout()
 		&mCubePixelShader
 	);
 
+	return true;
+}
+
+bool Renderer::CreateConstantBuffers()
+{
+	DirectX::XMStoreFloat4x4(&mCubeWorld, DirectX::XMMatrixIdentity());
+
+
+	DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -10.0f, 1.0f);
+	DirectX::XMVECTOR target = DirectX::XMVectorZero();
+	DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(pos, target, up);
+	DirectX::XMStoreFloat4x4(&mView, view);
+
+	DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, this->mAspectRatio, 1.0f, 1000.0f);
+	DirectX::XMStoreFloat4x4(&mProjection, proj);
+
+	DirectX::XMMATRIX wvp = DirectX::XMMatrixMultiply(view, proj);
+
+	VS_CONSTANT_BUFFER vsConstData;
+	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, wvp);
+	// Fill in a buffer description.
+	D3D11_BUFFER_DESC cbDesc;
+	cbDesc.ByteWidth = sizeof(VS_CONSTANT_BUFFER);
+	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbDesc.MiscFlags = 0;
+	cbDesc.StructureByteStride = 0;
+
+	// Fill in the subresource data.
+	D3D11_SUBRESOURCE_DATA InitData;
+	InitData.pSysMem = &vsConstData;
+	InitData.SysMemPitch = 0;
+	InitData.SysMemSlicePitch = 0;
+
+	// Create the buffer.
+	HRESULT hr = this->mDevice->CreateBuffer(&cbDesc, &InitData,
+		&this->mWVPBuffer);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateBuffer for WVP failed", 0, 0);
+		return false;
+	}
 	return true;
 }

@@ -13,6 +13,12 @@ struct Vertex
 	DirectX::XMFLOAT3 Pos;
 	DirectX::XMFLOAT4 Color;
 };
+
+struct VS_CONSTANT_BUFFER
+{
+	DirectX::XMFLOAT4X4 mWorldViewProj;
+};
+
 class Renderer
 {
 public:
@@ -26,6 +32,17 @@ private:
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11VertexShader* mCubeVertexShader = nullptr;
 	ID3D11PixelShader* mCubePixelShader = nullptr;
+	DirectX::XMFLOAT4X4 mCubeWorld;
+	DirectX::XMFLOAT4X4 mView;
+	DirectX::XMFLOAT4X4 mProjection;
+
+	float mAspectRatio = 0.0f;
+
+	float mClearColor[4] = { 0.5f, 0.0f, 0.5f, 1.0f };
+
+	ID3D11Buffer* mWVPBuffer = nullptr;
+
+	ID3D11RasterizerState* mRasterState = nullptr;
 
 	Timer gameTimer;
 	ID3D11Device* mDevice = nullptr;
@@ -42,4 +59,5 @@ private:
 	bool Init();
 	bool CreateVertexBuffers();
 	bool CreateShadersAndInputLayout();
+	bool CreateConstantBuffers();
 };
