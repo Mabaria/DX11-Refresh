@@ -25,6 +25,8 @@ void Renderer::Frame()
 		1.0f,
 		0
 	);
+
+	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
 
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
@@ -329,6 +331,8 @@ bool Renderer::CreateShadersAndInputLayout()
 		MessageBox(0, L"CreateInputLayout failed", 0, 0);
 		return false;
 	}
+	// Set the input layout
+	this->mDeviceContext->IASetInputLayout(this->mInputLayout);
 
 	vs_blob->Release();
 	// Compile pixel shader
