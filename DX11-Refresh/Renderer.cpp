@@ -306,7 +306,7 @@ bool Renderer::CreateVertexBuffers()
 	D3D11_RASTERIZER_DESC rsDesc;
 	ZeroMemory(&rsDesc, sizeof(D3D11_RASTERIZER_DESC));
 	rsDesc.FillMode = D3D11_FILL_SOLID;
-	rsDesc.CullMode = D3D11_CULL_NONE;
+	rsDesc.CullMode = D3D11_CULL_BACK;
 	rsDesc.FrontCounterClockwise = false;
 	rsDesc.DepthClipEnable = true;
 	hr = mDevice->CreateRasterizerState(&rsDesc, &mRasterState);
@@ -457,7 +457,7 @@ bool Renderer::CreateConstantBuffers()
 void Renderer::updateWVP(float dt)
 {
 	DirectX::XMMATRIX newWorld = DirectX::XMLoadFloat4x4(&this->mCubeWorld);
-	newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, 0.0f, 0.0f);
+	newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, dt*0.1f, 0.0f);
 	DirectX::XMStoreFloat4x4(&this->mCubeWorld, newWorld);
 	DirectX::XMMATRIX view = DirectX::XMLoadFloat4x4(&this->mView);
 
