@@ -32,6 +32,7 @@ void Renderer::Frame()
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
 	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
 	this->mDeviceContext->RSSetState(this->mRasterState);
+
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
 	// Set the WVP buffer.
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
@@ -247,11 +248,10 @@ bool Renderer::CreateVertexBuffers()
 	D3D11_SUBRESOURCE_DATA vinitData;
 	vinitData.pSysMem = vertices;
 
-	ID3D11Buffer* CubeVertexBuffer;
 	HRESULT hr = this->mDevice->CreateBuffer(
 		&vbd,
 		&vinitData,
-		&CubeVertexBuffer
+		&mCubeVertexBuffer
 	);
 	if (FAILED(hr))
 	{
