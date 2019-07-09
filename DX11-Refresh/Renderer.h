@@ -30,6 +30,7 @@ public:
 
 private:
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
+	ID3D11Buffer* mCubeIndexBuffer = nullptr;
 	ID3D11VertexShader* mCubeVertexShader = nullptr;
 	ID3D11PixelShader* mCubePixelShader = nullptr;
 	DirectX::XMFLOAT4X4 mCubeWorld;
@@ -60,4 +61,6 @@ private:
 	bool CreateVertexBuffers();
 	bool CreateShadersAndInputLayout();
 	bool CreateConstantBuffers();
+
+	void updateWVP(float dt);
 };

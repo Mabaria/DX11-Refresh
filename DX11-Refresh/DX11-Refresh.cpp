@@ -60,16 +60,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_DX11REFRESH));
 
     MSG msg;
+	UINT_PTR timerId = 1;
 
+	SetTimer(GetActiveWindow(),
+		timerId,
+		16,
+		(TIMERPROC)NULL
+	);
     // Main message loop:
     while (GetMessage(&msg, nullptr, 0, 0))
     {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
+		mRenderer.Frame();
+        //if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+        //{
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-        }
-		mRenderer.Frame();
+        //}
+
     }
 
     return (int) msg.wParam;

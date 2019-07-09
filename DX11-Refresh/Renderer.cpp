@@ -15,7 +15,7 @@ Renderer::~Renderer()
 void Renderer::Frame()
 {
 	this->gameTimer.Tick();
-
+	this->updateWVP(this->gameTimer.DeltaTime());
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
@@ -34,12 +34,15 @@ void Renderer::Frame()
 	this->mDeviceContext->RSSetState(this->mRasterState);
 
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
+	this->mDeviceContext->IASetIndexBuffer(this->mCubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	// Set the WVP buffer.
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
-	this->mDeviceContext->Draw(8, 0);
 
 
-	HRESULT hr = this->mSwapChain->Present(1, 0);
+	this->mDeviceContext->DrawIndexed(36, 0, 0);
+
+
+	HRESULT hr = this->mSwapChain->Present(0, 0);
 }
 
 bool Renderer::Init()
@@ -228,7 +231,7 @@ bool Renderer::CreateVertexBuffers()
 {
 	Vertex vertices[] =
 	{
-	{ DirectX::XMFLOAT3(-1.0f, +1.0f, -1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)},
+	{ DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)},
 	{ DirectX::XMFLOAT3(-1.0f, +1.0f, -1.0f), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f)},
 	{ DirectX::XMFLOAT3(+1.0f, +1.0f, -1.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)},
 	{ DirectX::XMFLOAT3(+1.0f, -1.0f, -1.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f)},
@@ -256,6 +259,47 @@ bool Renderer::CreateVertexBuffers()
 	if (FAILED(hr))
 	{
 		MessageBox(0, L"CreateBuffer for cube vertex buffer failed", 0, 0);
+		return false;
+	}
+
+	UINT indices[] = {
+		// front face
+		0, 1, 2,
+		0, 2, 3,
+		// back face
+		4, 6, 5,
+		4, 7, 6,
+		// left face
+		4, 5, 1,
+		4, 1, 0,
+		// right face
+		3, 2, 6,
+		3, 6, 7,
+		// top face
+		1, 5, 6,
+		1, 6, 2,
+		// bottom face
+		4, 0, 3,
+		4, 3, 7
+	};
+
+	D3D11_BUFFER_DESC ibd;
+	ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+	ibd.Usage = D3D11_USAGE_IMMUTABLE;
+	ibd.ByteWidth = sizeof(UINT) * 36;
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA iinitData;
+	iinitData.pSysMem = indices;
+
+	hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &this->mCubeIndexBuffer);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateBuffer for cube index buffer failed", 0, 0);
 		return false;
 	}
 
@@ -370,7 +414,7 @@ bool Renderer::CreateConstantBuffers()
 	DirectX::XMStoreFloat4x4(&mCubeWorld, DirectX::XMMatrixIdentity());
 
 
-	DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -10.0f, 1.0f);
+	DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f);
 	DirectX::XMVECTOR target = DirectX::XMVectorZero();
 	DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
@@ -387,9 +431,9 @@ bool Renderer::CreateConstantBuffers()
 	// Fill in a buffer description.
 	D3D11_BUFFER_DESC cbDesc;
 	cbDesc.ByteWidth = sizeof(VS_CONSTANT_BUFFER);
-	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+	cbDesc.Usage = D3D11_USAGE_DEFAULT;
 	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbDesc.CPUAccessFlags = 0;
 	cbDesc.MiscFlags = 0;
 	cbDesc.StructureByteStride = 0;
 
@@ -408,4 +452,29 @@ bool Renderer::CreateConstantBuffers()
 		return false;
 	}
 	return true;
+}
+
+void Renderer::updateWVP(float dt)
+{
+	DirectX::XMMATRIX newWorld = DirectX::XMLoadFloat4x4(&this->mCubeWorld);
+	newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, 0.0f, 0.0f);
+	DirectX::XMStoreFloat4x4(&this->mCubeWorld, newWorld);
+	DirectX::XMMATRIX view = DirectX::XMLoadFloat4x4(&this->mView);
+
+	DirectX::XMMATRIX proj = DirectX::XMLoadFloat4x4(&this->mProjection);
+
+	DirectX::XMMATRIX wvp = DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(newWorld, view), proj);
+
+	VS_CONSTANT_BUFFER vsConstData;
+	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, wvp);
+
+	this->mDeviceContext->UpdateSubresource(
+		this->mWVPBuffer,
+		0,
+		NULL,
+		&vsConstData,
+		0,
+		0
+	);
+
 }

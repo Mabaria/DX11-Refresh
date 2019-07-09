@@ -18,7 +18,7 @@ struct VSOut
 VSOut VS(VSIn input)
 {
 	VSOut output;
-	output.Pos = mul(float4(input.Pos, 1.0f), gWorldViewProj);
+	output.Pos = mul(gWorldViewProj, float4(input.Pos, 1.0f));
 	output.Color = input.Color;
 
 	return output;
