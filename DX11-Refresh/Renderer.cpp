@@ -41,25 +41,26 @@ void Renderer::Frame()
 
 bool Renderer::Init()
 {
-	// Create D3D11 Device
-	HRESULT hr = D3D11CreateDevice(
-		NULL,
-		D3D_DRIVER_TYPE_HARDWARE,
-		NULL,
-		D3D11_CREATE_DEVICE_DEBUG || D3D11_CREATE_DEVICE_SINGLETHREADED,
-		NULL,
-		0,
-		D3D11_SDK_VERSION,
-		&mDevice,
-		NULL,
-		&mDeviceContext
-	);
+	HRESULT hr;
+	//// Create D3D11 Device
+	//HRESULT hr = D3D11CreateDevice(
+	//	NULL,
+	//	D3D_DRIVER_TYPE_HARDWARE,
+	//	NULL,
+	//	D3D11_CREATE_DEVICE_DEBUG || D3D11_CREATE_DEVICE_SINGLETHREADED,
+	//	NULL,
+	//	0,
+	//	D3D11_SDK_VERSION,
+	//	&mDevice,
+	//	NULL,
+	//	&mDeviceContext
+	//);
 
-	if (FAILED(hr))
-	{
-		MessageBox(0, L"D3D11CreateDevice failed.", 0, 0);
-		return false;
-	}
+	//if (FAILED(hr))
+	//{
+	//	MessageBox(0, L"D3D11CreateDevice failed.", 0, 0);
+	//	return false;
+	//}
 
 	HWND activeWindow = GetActiveWindow();
 	RECT activeWindowRect;
@@ -76,61 +77,73 @@ bool Renderer::Init()
 	modeDesc.ScanlineOrdering			= DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 	modeDesc.Scaling					= DXGI_MODE_SCALING_UNSPECIFIED;
 
-	// checking for multisample support
-	UINT numQualityLevels				= 0;
+	//// checking for multisample support
+	//UINT numQualityLevels				= 0;
 
-	mDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM, 4, &numQualityLevels);
+	//mDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM, 4, &numQualityLevels);
 
 	DXGI_SWAP_CHAIN_DESC swapChainDesc;
+	ZeroMemory(&swapChainDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
+
 	swapChainDesc.BufferDesc			= modeDesc;
-	swapChainDesc.SampleDesc.Count		= 4;
-	swapChainDesc.SampleDesc.Quality	= numQualityLevels - 1;
+	swapChainDesc.SampleDesc.Count		= 1;
 	swapChainDesc.BufferUsage			= DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount			= 1;
 	swapChainDesc.Windowed				= true;
 	swapChainDesc.SwapEffect			= DXGI_SWAP_EFFECT_DISCARD;
 	swapChainDesc.Flags					= 0;
-	swapChainDesc.OutputWindow			= GetActiveWindow();
+	swapChainDesc.OutputWindow			= activeWindow;
 
 	// Get dxgiFactory for creation of swapchain 
 
-	IDXGIDevice* dxgiDevice = 0;
-	mDevice->QueryInterface(__uuidof(IDXGIDevice),
-		(void**)& dxgiDevice);
+	//IDXGIDevice* dxgiDevice = 0;
+	//mDevice->QueryInterface(__uuidof(IDXGIDevice),
+	//	(void**)& dxgiDevice);
 
-	IDXGIAdapter* dxgiAdapter = 0;
-	dxgiDevice->GetAdapter(&dxgiAdapter);
+	//IDXGIAdapter* dxgiAdapter = 0;
+	//dxgiDevice->GetAdapter(&dxgiAdapter);
 
-	IDXGIFactory* dxgiFactory = 0;
-	dxgiAdapter->GetParent(__uuidof(IDXGIFactory),
-		(void**)& dxgiFactory);
+	//IDXGIFactory* dxgiFactory = 0;
+	//dxgiAdapter->GetParent(__uuidof(IDXGIFactory),
+	//	(void**)& dxgiFactory);
 
-	dxgiDevice->Release();
-	dxgiAdapter->Release();
-	dxgiFactory->Release();
+	//dxgiDevice->Release();
+	//dxgiAdapter->Release();
+	//dxgiFactory->Release();
 
-
-	hr = dxgiFactory->CreateSwapChain(mDevice, &swapChainDesc, &mSwapChain);
+	hr = D3D11CreateDeviceAndSwapChain(NULL,
+		D3D_DRIVER_TYPE_HARDWARE,
+		NULL,
+		D3D11_CREATE_DEVICE_DEBUG,
+		NULL,
+		NULL,
+		D3D11_SDK_VERSION,
+		&swapChainDesc,
+		&this->mSwapChain,
+		&this->mDevice,
+		NULL,
+		&this->mDeviceContext);
+	
+	//hr = dxgiFactory->CreateSwapChain(mDevice, &swapChainDesc, &mSwapChain);
 
 	if (FAILED(hr))
 	{
-		MessageBox(0, L"CreateSwapChain failed.", 0, 0);
+		MessageBox(0, L"CreateDeviceAndSwapChain failed.", 0, 0);
 		return false;
 	}
 
-	ID3D11RenderTargetView* mRenderTargetView;
-	ID3D11Texture2D* backBuffer;
+
 	hr = mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-		reinterpret_cast<void**>(&backBuffer));
+		reinterpret_cast<void**>(&mBackBuffer));
 
 	if (FAILED(hr))
 	{
 		MessageBox(0, L"GetBuffer failed.", 0, 0);
 		return false;
 	}
-	if (backBuffer != nullptr)
+	if (mBackBuffer != nullptr)
 	{
-		hr = mDevice->CreateRenderTargetView(backBuffer, 0, &mRenderTargetView);
+		hr = mDevice->CreateRenderTargetView(mBackBuffer, 0, &mRenderTargetView);
 
 		if (FAILED(hr))
 		{
@@ -138,26 +151,55 @@ bool Renderer::Init()
 			return false;
 		}
 	}
+	else
+	{
+		MessageBox(0, L"backBuffer was nullptr.", 0, 0);
+		return false;
+	}
 	
-	backBuffer->Release();
+	mBackBuffer->Release();
 
 	// Create depth stencil buffer and view
 
 	D3D11_TEXTURE2D_DESC depthStencilDesc;
+	ZeroMemory(&depthStencilDesc, sizeof(D3D11_TEXTURE2D_DESC));
 	depthStencilDesc.Width					= activeWindowRect.right - activeWindowRect.left;
 	depthStencilDesc.Height					= activeWindowRect.bottom - activeWindowRect.top;
 	depthStencilDesc.MipLevels				= 1;
 	depthStencilDesc.ArraySize				= 1;
 	depthStencilDesc.Format					= DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-	// 4x MSAA
-	depthStencilDesc.SampleDesc.Count		= 4;
-	depthStencilDesc.SampleDesc.Quality		= numQualityLevels - 1;
+	// 4x MSAA DISABLED CURRENTLY
+	depthStencilDesc.SampleDesc.Count		= 1;
+	//depthStencilDesc.SampleDesc.Quality		= numQualityLevels - 1;
 
 	depthStencilDesc.Usage					= D3D11_USAGE_DEFAULT;
 	depthStencilDesc.BindFlags				= D3D11_BIND_DEPTH_STENCIL;
 	depthStencilDesc.CPUAccessFlags			= 0;
 	depthStencilDesc.MiscFlags				= 0;
+
+	hr = this->mDevice->CreateTexture2D(
+		&depthStencilDesc,
+		0,
+		&this->mDepthStencilBuffer
+	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateTexture2D failed for depthStencilBuffer.", 0, 0);
+		return false;
+	}
+
+	hr = this->mDevice->CreateDepthStencilView(
+		this->mDepthStencilBuffer,
+		0,
+		&this->mDepthStencilView
+	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateDepthStencilView failed.", 0, 0);
+		return false;
+	}
+
 
 	// Set render target
 	this->mDeviceContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
