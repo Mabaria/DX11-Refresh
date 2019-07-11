@@ -8,6 +8,8 @@
 #include <d3dcompiler.h>
 #include "Timer.h"
 #include "Camera.h"
+#include "Keyboard.h"
+#include "Mouse.h"
 
 template <class T> void SafeRelease(T** ppT)
 {
@@ -77,4 +79,7 @@ private:
 	bool CreateConstantBuffers();
 
 	void updateWVP(float dt);
+
+	std::unique_ptr<DirectX::Keyboard> m_keyboard;
+	std::unique_ptr<DirectX::Mouse> m_mouse;
 };

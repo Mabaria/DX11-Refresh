@@ -44,6 +44,20 @@ void Renderer::Frame()
 		0
 	);
 
+	//auto kb = this->m_keyboard->GetState();
+	//auto mouse = this->m_mouse->GetState();
+	//if (kb.W || mouse.leftButton)
+	//{
+	//	this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), 0.1f);
+	//}
+	//else if (kb.S || mouse.rightButton)
+	//{
+	//	this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), 0.1f);
+	//}
+	//int test = mouse.x;
+	//int test2 = mouse.y;
+
+
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
 
@@ -260,6 +274,11 @@ bool Renderer::Init()
 
 	// Start game timer
 	this->gameTimer.Start();
+
+	// Initialize keyboard and mouse
+	//m_keyboard = std::make_unique<DirectX::Keyboard>();
+	//m_mouse = std::make_unique<DirectX::Mouse>();
+	//m_mouse->SetWindow(activeWindow);
 
 	return true;
 }
