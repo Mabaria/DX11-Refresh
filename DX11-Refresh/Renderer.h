@@ -7,6 +7,16 @@
 #include <DirectXMath.h>
 #include <d3dcompiler.h>
 #include "Timer.h"
+#include "Camera.h"
+
+template <class T> void SafeRelease(T** ppT)
+{
+	if (*ppT)
+	{
+		(*ppT)->Release();
+		*ppT = NULL;
+	}
+}
 
 struct Vertex
 {
@@ -27,14 +37,18 @@ public:
 
 
 	void Frame();
+	void MouseMoved(int x, int y);
+	void KeyPressed(WPARAM key);
 
 private:
+	Camera* mCamera = nullptr;
+
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;
 	ID3D11VertexShader* mCubeVertexShader = nullptr;
 	ID3D11PixelShader* mCubePixelShader = nullptr;
 	DirectX::XMFLOAT4X4 mCubeWorld;
-	DirectX::XMFLOAT4X4 mView;
+	//DirectX::XMFLOAT4X4 mView;
 	DirectX::XMFLOAT4X4 mProjection;
 
 	float mAspectRatio = 0.0f;

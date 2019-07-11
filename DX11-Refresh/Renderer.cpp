@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+
+
 Renderer::Renderer()
 {
 	this->Init();
@@ -10,6 +12,22 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
+	if (this->mCamera != nullptr)
+		delete this->mCamera;
+
+	SafeRelease(&this->mDevice);
+	SafeRelease(&this->mDeviceContext);
+	SafeRelease(&this->mCubeIndexBuffer);
+	SafeRelease(&this->mCubeVertexBuffer);
+	SafeRelease(&this->mCubeVertexShader);
+	SafeRelease(&this->mCubePixelShader);
+	SafeRelease(&this->mRenderTargetView);
+	SafeRelease(&this->mDepthStencilBuffer);
+	SafeRelease(&this->mDepthStencilView);
+	SafeRelease(&this->mInputLayout);
+	SafeRelease(&this->mRasterState);
+	SafeRelease(&this->mSwapChain);
+	SafeRelease(&this->mWVPBuffer);
 }
 
 void Renderer::Frame()
@@ -45,34 +63,48 @@ void Renderer::Frame()
 	HRESULT hr = this->mSwapChain->Present(0, 0);
 }
 
+void Renderer::MouseMoved(int x, int y)
+{
+	this->mCamera->RotateCameraPitchYawRoll(x / 100.0f, y / 100.0f, 0.0f);
+}
+
+void Renderer::KeyPressed(WPARAM key)
+{
+	int ascii = (int)key;
+	switch (ascii)
+	{
+	case 87: // W
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), 0.1f);
+		break;
+	case 83: // S
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), 0.1f);
+		break;
+	}
+	
+}
+
 bool Renderer::Init()
 {
 	HRESULT hr;
-	//// Create D3D11 Device
-	//HRESULT hr = D3D11CreateDevice(
-	//	NULL,
-	//	D3D_DRIVER_TYPE_HARDWARE,
-	//	NULL,
-	//	D3D11_CREATE_DEVICE_DEBUG || D3D11_CREATE_DEVICE_SINGLETHREADED,
-	//	NULL,
-	//	0,
-	//	D3D11_SDK_VERSION,
-	//	&mDevice,
-	//	NULL,
-	//	&mDeviceContext
-	//);
 
-	//if (FAILED(hr))
-	//{
-	//	MessageBox(0, L"D3D11CreateDevice failed.", 0, 0);
-	//	return false;
-	//}
 
 	HWND activeWindow = GetActiveWindow();
 	RECT activeWindowRect;
 	GetWindowRect(activeWindow, &activeWindowRect);
 
 	this->mAspectRatio = (float)(activeWindowRect.right - activeWindowRect.left) / (float)(activeWindowRect.bottom - activeWindowRect.top);
+
+
+	this->mCamera = new Camera(DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f),
+		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f),
+		DirectX::XMVectorZero(),
+		90.0f,
+		this->mAspectRatio,
+		1.0f,
+		1000.0f
+	);
+
+	
 
 	DXGI_MODE_DESC modeDesc;
 	modeDesc.Width						= activeWindowRect.right - activeWindowRect.left;
@@ -414,12 +446,11 @@ bool Renderer::CreateConstantBuffers()
 	DirectX::XMStoreFloat4x4(&mCubeWorld, DirectX::XMMatrixIdentity());
 
 
-	DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f);
-	DirectX::XMVECTOR target = DirectX::XMVectorZero();
-	DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	//DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f);
+	//DirectX::XMVECTOR target = DirectX::XMVectorZero();
+	//DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-	DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(pos, target, up);
-	DirectX::XMStoreFloat4x4(&mView, view);
+	DirectX::XMMATRIX view = this->mCamera->GetViewMatrix();
 
 	DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(0.25f * DirectX::XM_PI, this->mAspectRatio, 1.0f, 1000.0f);
 	DirectX::XMStoreFloat4x4(&mProjection, proj);
@@ -459,7 +490,7 @@ void Renderer::updateWVP(float dt)
 	DirectX::XMMATRIX newWorld = DirectX::XMLoadFloat4x4(&this->mCubeWorld);
 	newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, dt*0.1f, 0.0f);
 	DirectX::XMStoreFloat4x4(&this->mCubeWorld, newWorld);
-	DirectX::XMMATRIX view = DirectX::XMLoadFloat4x4(&this->mView);
+	DirectX::XMMATRIX view = this->mCamera->GetViewMatrix();
 
 	DirectX::XMMATRIX proj = DirectX::XMLoadFloat4x4(&this->mProjection);
 
