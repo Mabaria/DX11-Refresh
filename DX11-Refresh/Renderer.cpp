@@ -79,8 +79,13 @@ void Renderer::KeyPressed(WPARAM key)
 	case 83: // S
 		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), 0.1f);
 		break;
+	case 65: // A
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f), 0.1f);
+		break;
+	case 68: // D
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), 0.1f);
+		break;
 	}
-	
 }
 
 bool Renderer::Init()
@@ -97,7 +102,7 @@ bool Renderer::Init()
 
 	this->mCamera = new Camera(DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f),
 		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f),
-		DirectX::XMVectorZero(),
+		DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f),
 		90.0f,
 		this->mAspectRatio,
 		1.0f,
@@ -488,7 +493,8 @@ bool Renderer::CreateConstantBuffers()
 void Renderer::updateWVP(float dt)
 {
 	DirectX::XMMATRIX newWorld = DirectX::XMLoadFloat4x4(&this->mCubeWorld);
-	newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, dt*0.1f, 0.0f);
+	//newWorld *= DirectX::XMMatrixRotationRollPitchYaw(dt, dt*0.1f, 0.0f);
+
 	DirectX::XMStoreFloat4x4(&this->mCubeWorld, newWorld);
 	DirectX::XMMATRIX view = this->mCamera->GetViewMatrix();
 

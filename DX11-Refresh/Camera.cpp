@@ -204,6 +204,7 @@ void Camera::MoveCamera(const DirectX::XMFLOAT3& r_direction,
 
 	this->SetCameraPosition(
 		DirectX::XMVectorAdd(this->mCameraPosition, displacement));
+	this->SetLookVector(DirectX::XMVectorAdd(this->mLookVector, displacement));
 
 }
 
@@ -215,6 +216,7 @@ void Camera::MoveCamera(const DirectX::XMVECTOR& r_direction,
 
 	this->SetCameraPosition(
 		DirectX::XMVectorAdd(this->mCameraPosition, displacement));
+	this->SetLookVector(DirectX::XMVectorAdd(this->mLookVector, displacement));
 }
 
 void Camera::MoveCamera(const float direction_x,
@@ -231,6 +233,7 @@ void Camera::MoveCamera(const float direction_x,
 			distance);
 	this->SetCameraPosition(
 		DirectX::XMVectorAdd(this->mCameraPosition, displacement));
+	this->SetLookVector(DirectX::XMVectorAdd(this->mLookVector, displacement));
 }
 
 void Camera::SetUpVector(const DirectX::XMFLOAT3& r_new_up)
