@@ -109,7 +109,8 @@ bool Renderer::Init()
 		90.0f,
 		this->mAspectRatio,
 		1.0f,
-		1000.0f
+		1000.0f,
+		LOOK_MODE::LOOK_TO
 	);
 
 	
@@ -546,6 +547,31 @@ void Renderer::HandleInput()
 	{
 		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), speed);
 	}
-	int test = mouse.x;
-	int test2 = mouse.y;
+
+	if (mouse.positionMode == DirectX::Mouse::MODE_RELATIVE)
+	{
+		DirectX::XMVECTOR delta = DirectX::XMVectorSet((float)mouse.x, (float)mouse.y, 0.0f, 0.0f);
+
+		this->m_pitch += mouse.y * 0.001f;
+		this->m_yaw += mouse.x * 0.001f;
+
+		 //limit pitch to straight up or straight down
+		 //with a little fudge-factor to avoid gimbal lock
+		float limit = DirectX::XM_PI / 2.0f - 0.01f;
+		m_pitch = max(-limit, m_pitch);
+		m_pitch = min(+limit, m_pitch);
+
+		// keep longitude in sane range by wrapping
+		if (m_yaw > DirectX::XM_PI)
+		{
+			m_yaw -= DirectX::XM_PI * 2.0f;
+		}
+		else if (m_yaw < -DirectX::XM_PI)
+		{
+			m_yaw += DirectX::XM_PI * 2.0f;
+		}
+		this->mCamera->RotateCameraPitchYawRoll2(m_pitch, m_yaw, 0.0f);
+	}
+
+	m_mouse->SetMode(mouse.leftButton ? DirectX::Mouse::MODE_RELATIVE : DirectX::Mouse::MODE_ABSOLUTE);
 }

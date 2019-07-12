@@ -3,6 +3,7 @@
 #include "DX11-Refresh.h"
 #include <d3d11.h>
 #include <iostream>
+#include <stdlib.h>
 #include <Windows.h>
 #include <DirectXMath.h>
 #include <d3dcompiler.h>
@@ -44,6 +45,9 @@ public:
 
 private:
 	Camera* mCamera = nullptr;
+	float m_pitch = 0.0f;
+	float m_yaw = 0.0f;
+
 
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;

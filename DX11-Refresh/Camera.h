@@ -105,6 +105,11 @@ public:
 	void RotateCameraPitchYawRoll(const DirectX::XMFLOAT3& pitch_yaw_roll);
 	void RotateCameraPitchYawRoll(const DirectX::XMVECTOR& pitch_yaw_roll);
 
+	void RotateCameraPitchYawRoll2(
+		const float pitch,
+		const float yaw,
+		const float roll);
+
 	float GetViewWidth() const;
 	float GetViewHeight() const;
 	float GetNearZ() const;
