@@ -79,6 +79,7 @@ private:
 	bool CreateConstantBuffers();
 
 	void updateWVP(float dt);
+	void HandleInput();
 
 	std::unique_ptr<DirectX::Keyboard> m_keyboard;
 	std::unique_ptr<DirectX::Mouse> m_mouse;

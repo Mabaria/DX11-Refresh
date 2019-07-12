@@ -33,12 +33,9 @@ Renderer::~Renderer()
 void Renderer::Frame()
 {
 	this->gameTimer.Tick();
-	//auto kb = m_keyboard->GetState();
-	//if (kb.Escape)
-	//{
-	//	MessageBox(0, L"Escape pressed.", 0, 0);
-	//}
+	this->HandleInput();
 	this->updateWVP(this->gameTimer.DeltaTime());
+
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
@@ -48,19 +45,6 @@ void Renderer::Frame()
 		1.0f,
 		0
 	);
-
-	auto kb = this->m_keyboard->GetState();
-	auto mouse = this->m_mouse->GetState();
-	if (kb.W || mouse.leftButton)
-	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), 0.1f);
-	}
-	else if (kb.S || mouse.rightButton)
-	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), 0.1f);
-	}
-	int test = mouse.x;
-	int test2 = mouse.y;
 
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -538,4 +522,30 @@ void Renderer::updateWVP(float dt)
 		0
 	);
 
+}
+
+void Renderer::HandleInput()
+{
+	auto kb = this->m_keyboard->GetState();
+	auto mouse = this->m_mouse->GetState();
+	float dt = this->gameTimer.DeltaTime();
+	float speed = 5.0f * dt;
+	if (kb.W)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), speed);
+	}
+	else if (kb.S)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), speed);
+	}
+	else if (kb.A)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f), speed);
+	}
+	else if (kb.D)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), speed);
+	}
+	int test = mouse.x;
+	int test2 = mouse.y;
 }
