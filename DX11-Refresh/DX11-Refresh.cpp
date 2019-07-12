@@ -21,8 +21,6 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
 int lastMouseXPos = -1;
 int lastMouseYPos = -1;
-std::unique_ptr<DirectX::Keyboard> m_keyboard;
-std::unique_ptr<DirectX::Mouse> m_mouse;
 Renderer* mRenderer;
 
 // Forward declarations of functions included in this code module:
@@ -53,9 +51,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-	m_keyboard = std::make_unique<DirectX::Keyboard>();
-	m_mouse = std::make_unique<DirectX::Mouse>();
-	m_mouse->SetWindow(GetActiveWindow());
+
+	//m_mouse->SetWindow(GetActiveWindow());
 
 	mRenderer = new Renderer();
 
@@ -82,11 +79,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     while (GetMessage(&msg, nullptr, 0, 0))
     {
 		mRenderer->Frame();
-		auto kb = m_keyboard->GetState();
+		/*auto kb = m_keyboard->GetState();
 		if (kb.Escape)
 		{
 			MessageBox(0, L"Escape pressed.", 0, 0);
-		}
+		}*/
         if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
         {
             TranslateMessage(&msg);
