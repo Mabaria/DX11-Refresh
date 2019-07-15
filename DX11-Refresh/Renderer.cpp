@@ -657,7 +657,7 @@ bool Renderer::CreateCubeMap()
 
 	hr = CreateDDSTextureFromFile(this->mDevice,
 		this->mDeviceContext,
-		L"Skybox.dds",
+		L"Skybox3.dds",
 		(ID3D11Resource * *)&SMTexture,
 		&smrv);
 	if (FAILED(hr))
