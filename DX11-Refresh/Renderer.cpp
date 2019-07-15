@@ -80,6 +80,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->sphereVertBuffer, &stride, &offset);
 
 	auto WVP = this->sphereWorld * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixTranspose(WVP);
 	VS_CONSTANT_BUFFER vsConstData;
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
