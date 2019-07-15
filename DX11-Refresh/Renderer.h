@@ -5,12 +5,16 @@
 #include <iostream>
 #include <stdlib.h>
 #include <Windows.h>
+#include <vector>
 #include <DirectXMath.h>
+#include <DDSTextureLoader.h>
 #include <d3dcompiler.h>
 #include "Timer.h"
 #include "Camera.h"
 #include "Keyboard.h"
 #include "Mouse.h"
+
+using namespace DirectX;
 
 template <class T> void SafeRelease(T** ppT)
 {
@@ -48,6 +52,28 @@ private:
 	float m_pitch = 0.0f;
 	float m_yaw = 0.0f;
 
+	ID3D11Buffer* sphereIndexBuffer;
+	ID3D11Buffer* sphereVertBuffer;
+
+	ID3D11VertexShader* SKYBOX_VS;
+	ID3D11PixelShader* SKYBOX_PS;
+	ID3D10Blob* SKYBOX_VS_Buffer;
+	ID3D10Blob* SKYBOX_PS_Buffer;
+	ID3D11SamplerState* skyboxSamplerState;
+	ID3D11ShaderResourceView* smrv;
+
+	ID3D11DepthStencilState* DSLessEqual;
+	ID3D11RasterizerState* RSCullNone;
+
+	int NumSphereVertices;
+	int NumSphereFaces;
+
+	DirectX::XMMATRIX sphereWorld;
+
+	XMMATRIX Rotationx;
+	XMMATRIX Rotationy;
+	XMMATRIX Rotationz;
+
 
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;
@@ -81,6 +107,9 @@ private:
 	bool CreateVertexBuffers();
 	bool CreateShadersAndInputLayout();
 	bool CreateConstantBuffers();
+	bool CreateSamplerState();
+	bool CreateCubeMap();
+	void CreateSphere(int LatLines, int LongLines);
 
 	void updateWVP(float dt);
 	void HandleInput();

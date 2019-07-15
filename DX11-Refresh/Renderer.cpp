@@ -8,6 +8,9 @@ Renderer::Renderer()
 	this->CreateShadersAndInputLayout();
 	this->CreateConstantBuffers();
 	this->CreateVertexBuffers();
+	this->CreateSamplerState();
+	this->CreateCubeMap();
+	this->CreateSphere(10, 10);
 }
 
 Renderer::~Renderer()
@@ -28,13 +31,35 @@ Renderer::~Renderer()
 	SafeRelease(&this->mRasterState);
 	SafeRelease(&this->mSwapChain);
 	SafeRelease(&this->mWVPBuffer);
+
+	sphereIndexBuffer->Release();
+	sphereVertBuffer->Release();
+
+	SKYBOX_VS->Release();
+	SKYBOX_PS->Release();
+
+	smrv->Release();
+
+	DSLessEqual->Release();
+	RSCullNone->Release();
 }
 
 void Renderer::Frame()
 {
 	this->gameTimer.Tick();
 	this->HandleInput();
-	this->updateWVP(this->gameTimer.DeltaTime());
+
+
+	sphereWorld = XMMatrixIdentity();
+
+	//Define sphereWorld's world space matrix
+	XMMATRIX Scale = XMMatrixScaling(5.0f, 5.0f, 5.0f);
+	//Make sure the sphere is always centered around camera
+	XMMATRIX Translation = XMMatrixTranslationFromVector(this->mCamera->GetPosition());
+
+	//Set sphereWorld's world space using the transformations
+	sphereWorld = Scale * Translation;
+
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
@@ -50,6 +75,32 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
 
+	// ----- Render sphere
+	this->mDeviceContext->IASetIndexBuffer(this->sphereIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->sphereVertBuffer, &stride, &offset);
+
+	auto WVP = this->sphereWorld * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	VS_CONSTANT_BUFFER vsConstData;
+	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
+	this->mDeviceContext->UpdateSubresource(
+		this->mWVPBuffer,
+		0,
+		NULL,
+		&vsConstData,
+		0,
+		0
+	);
+	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
+	this->mDeviceContext->PSSetShaderResources(0, 1, &smrv);
+	this->mDeviceContext->PSSetSamplers(0, 1, &skyboxSamplerState);
+
+	this->mDeviceContext->VSSetShader(SKYBOX_VS, 0, 0);
+	this->mDeviceContext->PSSetShader(SKYBOX_PS, 0, 0);
+	this->mDeviceContext->OMSetDepthStencilState(DSLessEqual, 0);
+	this->mDeviceContext->RSSetState(RSCullNone);
+	this->mDeviceContext->DrawIndexed(NumSphereFaces * 3, 0, 0);
+
+	// ----- Render cube
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
 	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
 	this->mDeviceContext->RSSetState(this->mRasterState);
@@ -57,6 +108,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
 	this->mDeviceContext->IASetIndexBuffer(this->mCubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	// Set the WVP buffer.
+	this->updateWVP(this->gameTimer.DeltaTime());
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 
 
@@ -451,18 +503,89 @@ bool Renderer::CreateShadersAndInputLayout()
 		nullptr,
 		&mCubePixelShader
 	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreatePixelShader failed", 0, 0);
+		return false;
+	}
 
+	ps_blob->Release();
+
+	//------ Skybox shaders below -----------------------------------
+	// --------------------------------------------------------------
+
+		// Compile skybox vertex shader
+	ID3DBlob* skybox_vs_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"SkyboxVS.hlsl",
+		nullptr,
+		nullptr,
+		"SKYBOX_VS",
+		"vs_5_0",
+		0,
+		0,
+		&skybox_vs_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Skybox Vertex Shader failed", 0, 0);
+		return false;
+	}
+	// Create vertex shader
+	hr = this->mDevice->CreateVertexShader(
+		skybox_vs_blob->GetBufferPointer(),
+		skybox_vs_blob->GetBufferSize(),
+		nullptr,
+		&SKYBOX_VS
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateVertexShader for Skybox failed", 0, 0);
+		return false;
+	}
+
+	skybox_vs_blob->Release();
+
+	// Compile pixel shader
+	ID3DBlob* skybox_ps_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"SkyboxPS.hlsl",
+		nullptr,
+		nullptr,
+		"SKYBOX_PS",
+		"ps_5_0",
+		0,
+		0,
+		&skybox_ps_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Pixel Shader for Skybox failed", 0, 0);
+		return false;
+	}
+	// Create Pixel shader
+	hr = this->mDevice->CreatePixelShader(
+		skybox_ps_blob->GetBufferPointer(),
+		skybox_ps_blob->GetBufferSize(),
+		nullptr,
+		&SKYBOX_PS
+	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreatePixelShader failed for Skybox", 0, 0);
+		return false;
+	}
 	return true;
 }
 
 bool Renderer::CreateConstantBuffers()
 {
 	DirectX::XMStoreFloat4x4(&mCubeWorld, DirectX::XMMatrixIdentity());
-
-
-	//DirectX::XMVECTOR pos = DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f);
-	//DirectX::XMVECTOR target = DirectX::XMVectorZero();
-	//DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	DirectX::XMMATRIX view = this->mCamera->GetViewMatrix();
 
@@ -499,6 +622,209 @@ bool Renderer::CreateConstantBuffers()
 	return true;
 }
 
+bool Renderer::CreateSamplerState()
+{
+	// Describe the Sample State
+	D3D11_SAMPLER_DESC sampDesc;
+	ZeroMemory(&sampDesc, sizeof(sampDesc));
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	sampDesc.MinLOD = 0;
+	sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	//Create the Sample State
+	HRESULT hr = this->mDevice->CreateSamplerState(&sampDesc, &skyboxSamplerState);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateSamplerState for Skybox failed", 0, 0);
+		return false;
+	}
+	return true;
+}
+
+bool Renderer::CreateCubeMap()
+{
+	//D3DX11_IMAGE_LOAD_INFO loadSMInfo;
+	//loadSMInfo.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+	HRESULT hr;
+	ID3D11Texture2D* SMTexture = 0;
+	//HRESULT hr = D3DX11CreateTextureFromFile(d3d11Device, L"skymap.dds",
+	//	&loadSMInfo, 0, (ID3D11Resource * *)& SMTexture, 0);
+
+	hr = CreateDDSTextureFromFile(this->mDevice,
+		this->mDeviceContext,
+		L"Skybox.dds",
+		(ID3D11Resource * *)&SMTexture,
+		&smrv);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateDDSTextureFromFile for Skybox failed", 0, 0);
+		return false;
+	}
+	D3D11_TEXTURE2D_DESC SMTextureDesc;
+	SMTexture->GetDesc(&SMTextureDesc);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
+	SMViewDesc.Format = SMTextureDesc.Format;
+	SMViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	SMViewDesc.TextureCube.MipLevels = SMTextureDesc.MipLevels;
+	SMViewDesc.TextureCube.MostDetailedMip = 0;
+
+	
+	D3D11_RASTERIZER_DESC cmdesc;
+	ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));
+	cmdesc.FillMode = D3D11_FILL_SOLID;
+	cmdesc.CullMode = D3D11_CULL_NONE;
+	cmdesc.FrontCounterClockwise = true;
+	hr = this->mDevice->CreateRasterizerState(&cmdesc, &RSCullNone);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateRasterizerState for Skybox failed", 0, 0);
+		return false;
+	}
+
+	D3D11_DEPTH_STENCIL_DESC dssDesc;
+	ZeroMemory(&dssDesc, sizeof(D3D11_DEPTH_STENCIL_DESC));
+	dssDesc.DepthEnable = true;
+	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dssDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+	hr = this->mDevice->CreateDepthStencilState(&dssDesc, &DSLessEqual);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateDepthStencilState for Skybox failed", 0, 0);
+		return false;
+	}
+
+	return true;
+}
+
+void Renderer::CreateSphere(int LatLines, int LongLines)
+{
+	NumSphereVertices = ((LatLines - 2) * LongLines) + 2;
+	NumSphereFaces = ((LatLines - 3) * (LongLines) * 2) + (LongLines * 2);
+
+	float sphereYaw = 0.0f;
+	float spherePitch = 0.0f;
+
+	std::vector<Vertex> vertices(NumSphereVertices);
+
+	DirectX::XMVECTOR currVertPos = DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+
+	vertices[0].Pos.x = 0.0f;
+	vertices[0].Pos.y = 0.0f;
+	vertices[0].Pos.z = 1.0f;
+
+	for (DWORD i = 0; i < LatLines - 2; ++i)
+	{
+		spherePitch = (i + 1) * (3.14 / (LatLines - 1));
+		Rotationx = XMMatrixRotationX(spherePitch);
+		for (DWORD j = 0; j < LongLines; ++j)
+		{
+			sphereYaw = j * (6.28 / (LongLines));
+			Rotationy = XMMatrixRotationZ(sphereYaw);
+			currVertPos = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), (Rotationx * Rotationy));
+			currVertPos = XMVector3Normalize(currVertPos);
+			vertices[i * LongLines + j + 1].Pos.x = XMVectorGetX(currVertPos);
+			vertices[i * LongLines + j + 1].Pos.y = XMVectorGetY(currVertPos);
+			vertices[i * LongLines + j + 1].Pos.z = XMVectorGetZ(currVertPos);
+
+		}
+
+		vertices[NumSphereVertices - 1].Pos.x = 0.0f;
+		vertices[NumSphereVertices - 1].Pos.y = 0.0f;
+		vertices[NumSphereVertices - 1].Pos.z = -1.0f;
+
+
+		D3D11_BUFFER_DESC vertexBufferDesc;
+		ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+
+		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		vertexBufferDesc.ByteWidth = sizeof(Vertex) * NumSphereVertices;
+		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexBufferDesc.CPUAccessFlags = 0;
+		vertexBufferDesc.MiscFlags = 0;
+
+		D3D11_SUBRESOURCE_DATA vertexBufferData;
+
+		ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
+		vertexBufferData.pSysMem = &vertices[0];
+		HRESULT hr = this->mDevice->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &sphereVertBuffer);
+
+
+		std::vector<DWORD> indices(NumSphereFaces * 3);
+
+		int k = 0;
+		for (DWORD l = 0; l < LongLines - 1; ++l)
+		{
+			indices[k] = 0;
+			indices[k + 1] = l + 1;
+			indices[k + 2] = l + 2;
+			k += 3;
+		}
+
+		indices[k] = 0;
+		indices[k + 1] = LongLines;
+		indices[k + 2] = 1;
+		k += 3;
+
+		for (DWORD i = 0; i < LatLines - 3; ++i)
+		{
+			for (DWORD j = 0; j < LongLines - 1; ++j)
+			{
+				indices[k] = i * LongLines + j + 1;
+				indices[k + 1] = i * LongLines + j + 2;
+				indices[k + 2] = (i + 1) * LongLines + j + 1;
+
+				indices[k + 3] = (i + 1) * LongLines + j + 1;
+				indices[k + 4] = i * LongLines + j + 2;
+				indices[k + 5] = (i + 1) * LongLines + j + 2;
+
+				k += 6; // next quad
+			}
+
+			indices[k] = (i * LongLines) + LongLines;
+			indices[k + 1] = (i * LongLines) + 1;
+			indices[k + 2] = ((i + 1) * LongLines) + LongLines;
+
+			indices[k + 3] = ((i + 1) * LongLines) + LongLines;
+			indices[k + 4] = (i * LongLines) + 1;
+			indices[k + 5] = ((i + 1) * LongLines) + 1;
+
+			k += 6;
+		}
+
+		for (DWORD l = 0; l < LongLines - 1; ++l)
+		{
+			indices[k] = NumSphereVertices - 1;
+			indices[k + 1] = (NumSphereVertices - 1) - (l + 1);
+			indices[k + 2] = (NumSphereVertices - 1) - (l + 2);
+			k += 3;
+		}
+
+		indices[k] = NumSphereVertices - 1;
+		indices[k + 1] = (NumSphereVertices - 1) - LongLines;
+		indices[k + 2] = NumSphereVertices - 2;
+
+		D3D11_BUFFER_DESC indexBufferDesc;
+		ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+
+		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		indexBufferDesc.ByteWidth = sizeof(DWORD) * NumSphereFaces * 3;
+		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		indexBufferDesc.CPUAccessFlags = 0;
+		indexBufferDesc.MiscFlags = 0;
+
+		D3D11_SUBRESOURCE_DATA iinitData;
+
+		iinitData.pSysMem = &indices[0];
+		this->mDevice->CreateBuffer(&indexBufferDesc, &iinitData, &sphereIndexBuffer);
+	}
+}
+
 void Renderer::updateWVP(float dt)
 {
 	DirectX::XMMATRIX newWorld = DirectX::XMLoadFloat4x4(&this->mCubeWorld);
@@ -509,7 +835,7 @@ void Renderer::updateWVP(float dt)
 
 	DirectX::XMMATRIX proj = DirectX::XMLoadFloat4x4(&this->mProjection);
 
-	DirectX::XMMATRIX wvp = DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(newWorld, view), proj);
+	DirectX::XMMATRIX wvp = XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(newWorld, view), proj));
 
 	VS_CONSTANT_BUFFER vsConstData;
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, wvp);
