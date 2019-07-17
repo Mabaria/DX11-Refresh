@@ -156,10 +156,10 @@ bool Renderer::Init()
 	this->mAspectRatio = (float)(activeWindowRect.right - activeWindowRect.left) / (float)(activeWindowRect.bottom - activeWindowRect.top);
 
 
-	this->mCamera = new Camera(DirectX::XMVectorSet(0.0f, 0.0f, -5.0f, 1.0f),
+	this->mCamera = new Camera(DirectX::XMVectorSet(0.0f, 5.0f, -5.0f, 1.0f),
 		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f),
 		DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f),
-		90.0f,
+		70.0f,
 		this->mAspectRatio,
 		1.0f,
 		1000.0f,
@@ -648,12 +648,8 @@ bool Renderer::CreateSamplerState()
 
 bool Renderer::CreateCubeMap()
 {
-	//D3DX11_IMAGE_LOAD_INFO loadSMInfo;
-	//loadSMInfo.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 	HRESULT hr;
 	ID3D11Texture2D* SMTexture = 0;
-	//HRESULT hr = D3DX11CreateTextureFromFile(d3d11Device, L"skymap.dds",
-	//	&loadSMInfo, 0, (ID3D11Resource * *)& SMTexture, 0);
 
 	hr = CreateDDSTextureFromFile(this->mDevice,
 		this->mDeviceContext,
@@ -674,7 +670,7 @@ bool Renderer::CreateCubeMap()
 	SMViewDesc.TextureCube.MipLevels = SMTextureDesc.MipLevels;
 	SMViewDesc.TextureCube.MostDetailedMip = 0;
 
-	
+	// Create rasterizer state with culling off
 	D3D11_RASTERIZER_DESC cmdesc;
 	ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));
 	cmdesc.FillMode = D3D11_FILL_SOLID;
@@ -835,7 +831,8 @@ void Renderer::updateWVP(float dt)
 	DirectX::XMMATRIX view = this->mCamera->GetViewMatrix();
 
 	DirectX::XMMATRIX proj = DirectX::XMLoadFloat4x4(&this->mProjection);
-
+	// Make cube into floor
+	newWorld *= XMMatrixScaling(50.0f, 0.1f, 50.0f);
 	DirectX::XMMATRIX wvp = XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(newWorld, view), proj));
 
 	VS_CONSTANT_BUFFER vsConstData;
