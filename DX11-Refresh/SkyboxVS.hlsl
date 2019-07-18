@@ -12,7 +12,8 @@ struct SKYBOX_VS_OUTPUT    //output structure for SKYBOX vertex shader
 struct VSIn
 {
 	float3 Pos	 : POSITION;
-	float4 Color : COLOR;
+	float3 Normal : NORMAL;
+	float2 UV		: TEXCOORD;
 };
 
 SKYBOX_VS_OUTPUT SKYBOX_VS(VSIn input)

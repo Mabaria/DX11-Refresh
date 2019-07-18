@@ -6,7 +6,8 @@ cbuffer wvp
 struct VSIn
 {
 	float3 Pos	 : POSITION;
-	float4 Color : COLOR;
+	float3 Normal : NORMAL;
+	float2 UV		: TEXCOORD;
 };
 
 struct VSOut
@@ -19,7 +20,7 @@ VSOut VS(VSIn input)
 {
 	VSOut output;
 	output.Pos = mul(float4(input.Pos, 1.0f), gWorldViewProj);
-	output.Color = input.Color;
+	output.Color = float4(0.83f, 0.83f, 0.83f, 1.0f);
 
 	return output;
 }

@@ -28,7 +28,8 @@ template <class T> void SafeRelease(T** ppT)
 struct Vertex
 {
 	DirectX::XMFLOAT3 Pos;
-	DirectX::XMFLOAT4 Color;
+	DirectX::XMFLOAT3 Normal;
+	DirectX::XMFLOAT2 Texcoord;
 };
 
 struct VS_CONSTANT_BUFFER
