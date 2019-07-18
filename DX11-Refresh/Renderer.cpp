@@ -10,6 +10,7 @@ Renderer::Renderer()
 	this->CreateVertexBuffers();
 	this->CreateSamplerState();
 	this->CreateCubeMap();
+	this->CreateFloorTexture();
 	this->CreateSphere(10, 10);
 }
 
@@ -110,6 +111,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetIndexBuffer(this->mCubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	// Set the WVP buffer.
 	this->updateWVP(this->gameTimer.DeltaTime());
+	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 
 
@@ -332,11 +334,11 @@ bool Renderer::CreateVertexBuffers()
 	{
 	{ DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f), DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
 	{ DirectX::XMFLOAT3(-1.0f, +1.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
-	{ DirectX::XMFLOAT3(+1.0f, +1.0f, -1.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
+	{ DirectX::XMFLOAT3(+1.0f, +1.0f, -1.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 50.0f)},
 	{ DirectX::XMFLOAT3(+1.0f, -1.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
 	{ DirectX::XMFLOAT3(-1.0f, -1.0f, +1.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
-	{ DirectX::XMFLOAT3(-1.0f, +1.0f, +1.0f), DirectX::XMFLOAT3(1.0f, 1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
-	{ DirectX::XMFLOAT3(+1.0f, +1.0f, +1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 1.0f), DirectX::XMFLOAT2(0.0f, 0.0f)},
+	{ DirectX::XMFLOAT3(-1.0f, +1.0f, +1.0f), DirectX::XMFLOAT3(1.0f, 1.0f, 0.0f), DirectX::XMFLOAT2(50.0f, 0.0f)},
+	{ DirectX::XMFLOAT3(+1.0f, +1.0f, +1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 1.0f), DirectX::XMFLOAT2(50.0f, 50.0f)},
 	{ DirectX::XMFLOAT3(+1.0f, -1.0f, +1.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 1.0f), DirectX::XMFLOAT2(0.0f, 0.0f)}
 	};
 	D3D11_BUFFER_DESC vbd;
@@ -663,14 +665,14 @@ bool Renderer::CreateCubeMap()
 		MessageBox(0, L"CreateDDSTextureFromFile for Skybox failed", 0, 0);
 		return false;
 	}
-	D3D11_TEXTURE2D_DESC SMTextureDesc;
-	SMTexture->GetDesc(&SMTextureDesc);
+	//D3D11_TEXTURE2D_DESC SMTextureDesc;
+	//SMTexture->GetDesc(&SMTextureDesc);
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
-	SMViewDesc.Format = SMTextureDesc.Format;
-	SMViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
-	SMViewDesc.TextureCube.MipLevels = SMTextureDesc.MipLevels;
-	SMViewDesc.TextureCube.MostDetailedMip = 0;
+	//D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
+	//SMViewDesc.Format = SMTextureDesc.Format;
+	//SMViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	//SMViewDesc.TextureCube.MipLevels = SMTextureDesc.MipLevels;
+	//SMViewDesc.TextureCube.MostDetailedMip = 0;
 
 	// Create rasterizer state with culling off
 	D3D11_RASTERIZER_DESC cmdesc;
@@ -698,6 +700,24 @@ bool Renderer::CreateCubeMap()
 		return false;
 	}
 
+	return true;
+}
+
+bool Renderer::CreateFloorTexture()
+{
+	HRESULT hr;
+	ID3D11Texture2D* SMTexture = 0;
+
+	hr = CreateDDSTextureFromFile(this->mDevice,
+		this->mDeviceContext,
+		L"../Textures/UnitTexture.dds",
+		(ID3D11Resource * *)& SMTexture,
+		&mCubeTexSRV);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateDDSTextureFromFile for Floor failed", 0, 0);
+		return false;
+	}
 	return true;
 }
 
@@ -872,6 +892,14 @@ void Renderer::HandleInput()
 	else if (kb.D)
 	{
 		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), speed);
+	}
+	else if (kb.Space)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), speed);
+	}
+	else if (kb.X)
+	{
+		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f), speed);
 	}
 
 	if (mouse.positionMode == DirectX::Mouse::MODE_RELATIVE)

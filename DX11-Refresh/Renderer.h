@@ -83,6 +83,7 @@ private:
 	DirectX::XMFLOAT4X4 mCubeWorld;
 	//DirectX::XMFLOAT4X4 mView;
 	DirectX::XMFLOAT4X4 mProjection;
+	ID3D11ShaderResourceView* mCubeTexSRV;
 
 	float mAspectRatio = 0.0f;
 
@@ -110,6 +111,7 @@ private:
 	bool CreateConstantBuffers();
 	bool CreateSamplerState();
 	bool CreateCubeMap();
+	bool CreateFloorTexture();
 	void CreateSphere(int LatLines, int LongLines);
 
 	void updateWVP(float dt);
