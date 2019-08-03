@@ -876,31 +876,46 @@ void Renderer::HandleInput()
 	auto kb = this->m_keyboard->GetState();
 	auto mouse = this->m_mouse->GetState();
 	float dt = this->gameTimer.DeltaTime();
-	float speed = 5.0f * dt;
+	float speed = 10.0f * dt;
+	if (kb.LeftShift)
+		speed *= 2;
+	XMVECTOR finalMovement = XMVectorZero();
 	if (kb.W)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(this->mCamera->GetLookVector(), speed);
+		finalMovement += this->mCamera->GetLookVector();
 	}
-	else if (kb.S)
+	if (kb.S)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(-this->mCamera->GetLookVector(), speed);
+		finalMovement += -this->mCamera->GetLookVector();
 	}
-	else if (kb.A)
+	if (kb.A)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(-this->mCamera->GetRightVector(), speed);
+		finalMovement += -this->mCamera->GetRightVector();
 	}
-	else if (kb.D)
+	if (kb.D)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(this->mCamera->GetRightVector(), speed);
+		finalMovement += this->mCamera->GetRightVector();
 	}
-	else if (kb.Space)
+	if (kb.Space)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), speed);
+		finalMovement += DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	}
-	else if (kb.X)
+	if (kb.X)
 	{
-		this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f), speed);
+		//this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f), speed);
+		finalMovement += DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);
 	}
+
+	this->mCamera->MoveCamera(XMVector3Normalize(finalMovement), speed);
 
 	if (mouse.positionMode == DirectX::Mouse::MODE_RELATIVE)
 	{
