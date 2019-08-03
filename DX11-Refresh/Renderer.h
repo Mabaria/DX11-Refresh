@@ -13,6 +13,7 @@
 #include "Camera.h"
 #include "Keyboard.h"
 #include "Mouse.h"
+#include "Obj_Loader.h"
 
 using namespace DirectX;
 
@@ -75,6 +76,10 @@ private:
 	XMMATRIX Rotationy;
 	XMMATRIX Rotationz;
 
+	objl::Loader objLoader;
+	std::vector<ID3D11Buffer*> testIndexBuffers;
+	std::vector<ID3D11Buffer*> testVertexBuffers;
+	std::vector<int> testIndexCount;
 
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;
@@ -113,6 +118,8 @@ private:
 	bool CreateCubeMap();
 	bool CreateFloorTexture();
 	void CreateSphere(int LatLines, int LongLines);
+
+	void ObjLoaderTest();
 
 	void updateWVP(float dt);
 	void HandleInput();

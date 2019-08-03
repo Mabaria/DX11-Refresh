@@ -12,6 +12,8 @@ Renderer::Renderer()
 	this->CreateCubeMap();
 	this->CreateFloorTexture();
 	this->CreateSphere(10, 10);
+
+	this->ObjLoaderTest();
 }
 
 Renderer::~Renderer()
@@ -102,6 +104,7 @@ void Renderer::Frame()
 	this->mDeviceContext->RSSetState(RSCullNone);
 	this->mDeviceContext->DrawIndexed(NumSphereFaces * 3, 0, 0);
 
+
 	// ----- Render cube
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
 	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
@@ -116,6 +119,34 @@ void Renderer::Frame()
 
 
 	this->mDeviceContext->DrawIndexed(36, 0, 0);
+
+	
+	// ------ Render tests
+	WVP = XMMatrixScaling(6, 6, 6) * XMMatrixTranslation(0, 0, 0) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixTranspose(WVP);
+	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
+	this->mDeviceContext->UpdateSubresource(
+		this->mWVPBuffer,
+		0,
+		NULL,
+		&vsConstData,
+		0,
+		0
+	);
+	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
+	this->mDeviceContext->RSSetState(this->mRasterState);
+	int iter = 0;
+	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
+	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
+
+	for (auto a : testVertexBuffers)
+	{
+		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &stride, &offset);
+		this->mDeviceContext->IASetIndexBuffer(testIndexBuffers[iter], DXGI_FORMAT_R32_UINT, 0);
+		this->mDeviceContext->DrawIndexed(testIndexCount[iter], 0, 0);
+		iter++;
+	}
 
 
 	HRESULT hr = this->mSwapChain->Present(0, 0);
@@ -841,6 +872,55 @@ void Renderer::CreateSphere(int LatLines, int LongLines)
 
 		iinitData.pSysMem = &indices[0];
 		this->mDevice->CreateBuffer(&indexBufferDesc, &iinitData, &sphereIndexBuffer);
+	}
+}
+
+void Renderer::ObjLoaderTest()
+{
+	this->objLoader.LoadFile("../Models/Floor01.obj");
+	std::vector<objl::Mesh> meshes = objLoader.LoadedMeshes;
+
+
+	for (auto a : meshes)
+	{
+		ID3D11Buffer* verBuf = nullptr;
+		ID3D11Buffer* indBuf = nullptr;
+
+		D3D11_BUFFER_DESC vbd;
+		vbd.Usage = D3D11_USAGE_IMMUTABLE;
+		vbd.ByteWidth = sizeof(objl::Vertex) * a.Vertices.size();
+		vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vbd.CPUAccessFlags = 0;
+		vbd.MiscFlags = 0;
+		vbd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA vinitData;
+		vinitData.pSysMem = &a.Vertices[0];
+
+		HRESULT hr = this->mDevice->CreateBuffer(
+			&vbd,
+			&vinitData,
+			&verBuf
+		);
+
+
+		D3D11_BUFFER_DESC ibd;
+		ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+		ibd.Usage = D3D11_USAGE_IMMUTABLE;
+		ibd.ByteWidth = sizeof(UINT) * a.Indices.size();
+		ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		ibd.CPUAccessFlags = 0;
+		ibd.MiscFlags = 0;
+		ibd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA iinitData;
+		iinitData.pSysMem = &a.Indices[0];
+
+		hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+
+		testVertexBuffers.push_back(verBuf);
+		testIndexBuffers.push_back(indBuf);
+		testIndexCount.push_back(a.Indices.size());
 	}
 }
 
