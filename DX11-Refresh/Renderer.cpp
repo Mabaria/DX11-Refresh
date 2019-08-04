@@ -13,7 +13,7 @@ Renderer::Renderer()
 	this->CreateFloorTexture();
 	this->CreateSphere(10, 10);
 
-	this->ObjLoaderTest();
+	//this->ObjLoaderTest();
 }
 
 Renderer::~Renderer()
@@ -174,6 +174,55 @@ void Renderer::KeyPressed(WPARAM key)
 	case 68: // D
 		this->mCamera->MoveCamera(DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), 0.1f);
 		break;
+	}
+}
+
+void Renderer::LoadMesh(std::string& filepath)
+{
+	this->objLoader.LoadFile(filepath);
+	std::vector<objl::Mesh> meshes = objLoader.LoadedMeshes;
+
+
+	for (auto a : meshes)
+	{
+		ID3D11Buffer* verBuf = nullptr;
+		ID3D11Buffer* indBuf = nullptr;
+
+		D3D11_BUFFER_DESC vbd;
+		vbd.Usage = D3D11_USAGE_IMMUTABLE;
+		vbd.ByteWidth = sizeof(objl::Vertex) * a.Vertices.size();
+		vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vbd.CPUAccessFlags = 0;
+		vbd.MiscFlags = 0;
+		vbd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA vinitData;
+		vinitData.pSysMem = &a.Vertices[0];
+
+		HRESULT hr = this->mDevice->CreateBuffer(
+			&vbd,
+			&vinitData,
+			&verBuf
+		);
+
+
+		D3D11_BUFFER_DESC ibd;
+		ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+		ibd.Usage = D3D11_USAGE_IMMUTABLE;
+		ibd.ByteWidth = sizeof(UINT) * a.Indices.size();
+		ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		ibd.CPUAccessFlags = 0;
+		ibd.MiscFlags = 0;
+		ibd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA iinitData;
+		iinitData.pSysMem = &a.Indices[0];
+
+		hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+
+		testVertexBuffers.push_back(verBuf);
+		testIndexBuffers.push_back(indBuf);
+		testIndexCount.push_back(a.Indices.size());
 	}
 }
 
@@ -877,7 +926,7 @@ void Renderer::CreateSphere(int LatLines, int LongLines)
 
 void Renderer::ObjLoaderTest()
 {
-	this->objLoader.LoadFile("../Models/Floor01.obj");
+	this->objLoader.LoadFile("../Models/BirchTree_2.obj");
 	std::vector<objl::Mesh> meshes = objLoader.LoadedMeshes;
 
 

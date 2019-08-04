@@ -3,9 +3,20 @@
 
 #include "framework.h"
 #include <windowsx.h>
+#include <Windows.h>
 #include "Renderer.h"
 #include "DX11-Refresh.h"
 #include <iostream>
+#include <shobjidl.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#include <strsafe.h>
+#include <propvarutil.h>
+
+#pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "propsys.lib")
 
 
 
@@ -51,16 +62,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-
-	//m_mouse->SetWindow(GetActiveWindow());
+	
 
 	mRenderer = new Renderer();
 
-
-
-
-
-
+	// Add menu item for obj file browser
+	HMENU menu = GetMenu(GetActiveWindow());
+	AppendMenuW(menu, MF_STRING, IDM_FILE_OPEN, L"&Open");
 	// -----------------------------------
 
 
@@ -151,6 +159,54 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+
+HRESULT BasicFileOpen()
+{
+	IFileOpenDialog* pFileOpen;
+	// Create the FileOpenDialog object.
+	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+		IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+
+	if (SUCCEEDED(hr))
+	{
+		const COMDLG_FILTERSPEC c_rgSaveTypes[] =
+		{
+			{L"OBJ Model File (*.obj)",			 L"*.obj"}
+		};
+		// Show the Open dialog box.
+		hr = pFileOpen->SetDefaultExtension(L"obj");
+		pFileOpen->SetFileTypes(ARRAYSIZE(c_rgSaveTypes), c_rgSaveTypes);
+		hr = pFileOpen->Show(GetActiveWindow());
+
+		// Get the file name from the dialog box.
+		if (SUCCEEDED(hr))
+		{
+			IShellItem* pItem;
+			hr = pFileOpen->GetResult(&pItem);
+			if (SUCCEEDED(hr))
+			{
+				PWSTR pszFilePath;
+				hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+
+				// Send file path to renderer
+				if (SUCCEEDED(hr))
+				{
+					LPWSTR path = pszFilePath;
+					std::wstring file = path;
+
+					std::string str(file.begin(), file.end());
+
+					CoTaskMemFree(pszFilePath);
+
+					mRenderer->LoadMesh(str);
+				}
+				pItem->Release();
+			}
+		}
+	}
+	return hr;
+}
+
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -181,6 +237,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
+			case IDM_FILE_OPEN:
+				BasicFileOpen();
+				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }

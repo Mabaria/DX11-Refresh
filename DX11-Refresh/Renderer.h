@@ -49,6 +49,8 @@ public:
 	void MouseMoved(int x, int y);
 	void KeyPressed(WPARAM key);
 
+	void LoadMesh(std::string &filepath);
+
 private:
 	Camera* mCamera = nullptr;
 	float m_pitch = 0.0f;
