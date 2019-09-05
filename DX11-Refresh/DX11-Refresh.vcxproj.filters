@@ -42,6 +42,9 @@
     <ClInclude Include="Obj_Loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Fbx_Loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DX11-Refresh.cpp">

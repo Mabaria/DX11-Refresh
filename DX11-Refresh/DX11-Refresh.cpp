@@ -12,6 +12,7 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 #include <propvarutil.h>
+#include "Fbx_Loader.h"
 
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "ole32.lib")
@@ -83,6 +84,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		6,
 		(TIMERPROC)NULL
 	);
+	std::vector<MyVertex> vertexTest;
+	std::vector<int> indexTest;
+	FbxLoader::LoadFBX(&vertexTest, &indexTest);
     // Main message loop:
     while (GetMessage(&msg, nullptr, 0, 0))
     {
