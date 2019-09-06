@@ -86,7 +86,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	);
 	std::vector<FbxVertex> vertexTest;
 	std::vector<int> indexTest;
-	FbxLoader::LoadFBX(&vertexTest, &indexTest);
+	FbxLoader::LoadFBX("C:\\Users\\magno\\Documents\\test2.fbx", &vertexTest, &indexTest);
     // Main message loop:
     while (GetMessage(&msg, nullptr, 0, 0))
     {

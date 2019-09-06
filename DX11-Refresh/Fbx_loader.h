@@ -71,6 +71,8 @@ namespace FbxLoader
 
 	void DisplayHierarchy(FbxScene* pScene);
 
-	HRESULT LoadFBX(std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector);
+	HRESULT LoadFBX(const std::string& filename, std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector);
+
+	HRESULT LoadFBX(const std::string& filename, std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector, Skeleton* skeleton);
 
 }
