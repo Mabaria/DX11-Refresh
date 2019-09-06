@@ -84,7 +84,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		6,
 		(TIMERPROC)NULL
 	);
-	std::vector<MyVertex> vertexTest;
+	std::vector<FbxVertex> vertexTest;
 	std::vector<int> indexTest;
 	FbxLoader::LoadFBX(&vertexTest, &indexTest);
     // Main message loop:

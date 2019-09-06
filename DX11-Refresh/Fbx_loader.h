@@ -2,21 +2,112 @@
 #include <vector>
 #include <d3d11.h>
 #include <cassert>
+#include <unordered_map>
 
-struct MyVertex
+struct FbxVertex
 {
 	float pos[3];
 	float nor[3];
 	float uv[2];
 };
 
+//This stores the weight of each Control Point
+struct IndexWeightPair
+{
+	unsigned int index;	//index of joint 
+	double weight;		//weight of influence by the joint
+	IndexWeightPair() :
+		index(0), weight(0.0)
+	{}
+};
+
+struct ControlPointInfo
+{
+	FbxVector4 ctrlPoint;
+	std::vector<IndexWeightPair> weightPairs;
+};
+
+//This stores the information of each key frame of each Joint
+struct KeyFrame {
+	FbxLongLong frameNum;
+	FbxAMatrix globalTransform;	//transform matrix
+	KeyFrame* next;
+	KeyFrame() :
+		next(nullptr)
+	{}
+};
+
+struct Joint {
+	FbxString jointName;
+	int currentIndex;	//index of current joint	
+	int parentIndex;	//index to its parent joint
+	FbxAMatrix globalMatrix;
+	FbxAMatrix localMatrix;
+	KeyFrame* animation;
+	FbxNode* node;
+
+	Joint() :
+		animation(nullptr),
+		node(nullptr)
+	{
+		localMatrix.SetIdentity();
+		globalMatrix.SetIdentity();
+		parentIndex = -1;
+	}
+};
+
+struct Skeleton {
+	std::vector<Joint> joints;
+};
+
 namespace FbxLoader
 {
 
-
 	FbxManager* g_pFbxSdkManager = nullptr;
+	Skeleton skeleton;
 
-	HRESULT LoadFBX(std::vector<MyVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector)
+
+	void DisplayHierarchy(FbxNode* node, int depth, int currIndex, int parentIndex)
+	{
+		FbxString jointName = node->GetName();
+		//Display the hierarchy
+		FbxString nodeNameBuf("");
+		for (int i = 0; i != depth; ++i) {
+			nodeNameBuf += "   ";
+		}
+		nodeNameBuf += jointName;
+		nodeNameBuf += "\n";
+		char buffer[100];
+		sprintf_s(buffer, nodeNameBuf.Buffer());
+		OutputDebugStringA(buffer);
+
+		//if the type of current node is Skeleton, then it's a joint
+		if (node->GetNodeAttribute() && node->GetNodeAttribute()->GetAttributeType() &&
+			node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
+			Joint jointTmp;
+			jointTmp.jointName = jointName;
+			jointTmp.parentIndex = parentIndex;		//parent index
+			jointTmp.currentIndex = currIndex;
+			skeleton.joints.push_back(jointTmp);
+		}
+
+		//Display the hierarchy recursively
+		for (int i = 0; i != node->GetChildCount(); ++i) {
+			DisplayHierarchy(node->GetChild(i), depth + 1, skeleton.joints.size(), currIndex);
+		}
+	}
+
+	void DisplayHierarchy(FbxScene* pScene)
+	{
+		OutputDebugStringA("\n\n---------------------------Hierarchy-------------------------------\n\n");
+		FbxNode* rootNode = pScene->GetRootNode();
+		int childCount = rootNode->GetChildCount();
+		for (int i = 0; i != childCount; ++i) {
+			DisplayHierarchy(rootNode->GetChild(i), 0, 0, -1);
+		}
+	}
+
+	HRESULT LoadFBX(std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector)
 	{
 		// Create the FbxManager if it does not already exist
 		if (g_pFbxSdkManager == nullptr)
@@ -30,7 +121,7 @@ namespace FbxLoader
 		FbxImporter* pImporter = FbxImporter::Create(g_pFbxSdkManager, "");
 		FbxScene* pFbxScene = FbxScene::Create(g_pFbxSdkManager, "");
 		// Import model
-		bool bSuccess = pImporter->Initialize("C:\\Users\\magno\\Documents\\test1Triangulated.fbx", -1, g_pFbxSdkManager->GetIOSettings());
+		bool bSuccess = pImporter->Initialize("C:\\Users\\magno\\Documents\\test2.fbx", -1, g_pFbxSdkManager->GetIOSettings());
 		if (!bSuccess) return E_FAIL;
 
 		bSuccess = pImporter->Import(pFbxScene);
@@ -40,6 +131,8 @@ namespace FbxLoader
 		
 
 		FbxNode* pFbxRootNode = pFbxScene->GetRootNode();
+
+		DisplayHierarchy(pFbxScene);
 
 		if (pFbxRootNode)
 		{
@@ -52,6 +145,7 @@ namespace FbxLoader
 				std::string nodeName = pFbxChildNode->GetName();
 				FbxNodeAttribute::EType AttributeType = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
 
+				std::unordered_map<int, ControlPointInfo> controlPointsInfo;
 
 				// Handle Skeleton
 				// Skeletons in the FBX are stored with a null type root node
@@ -65,13 +159,71 @@ namespace FbxLoader
 					int k = 22;
 				}
 				
-
 				// Handle Mesh attribute item
 				else if (AttributeType == FbxNodeAttribute::eMesh)
 				{
 
 
 					FbxMesh* pMesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
+
+					// Deformer is basically a skeleton, so there will most likely only be one deformer per mesh
+					unsigned int numOfDeformers = pMesh->GetDeformerCount();
+					for (unsigned int deformerIndex = 0; deformerIndex != numOfDeformers; ++deformerIndex)
+					{
+						FbxSkin* currSkin = reinterpret_cast<FbxSkin*>(pMesh->GetDeformer(deformerIndex, FbxDeformer::eSkin));
+						// If skin not found
+						
+						if (!currSkin)
+						{
+							continue;
+						}
+
+						// Cluster == bone
+						unsigned int numOfClusters = currSkin->GetClusterCount();
+						for (unsigned int clusterIndex = 0; clusterIndex != numOfClusters; ++clusterIndex)
+						{
+							FbxCluster* currCluster = currSkin->GetCluster(clusterIndex);
+							FbxString currJointName = currCluster->GetLink()->GetName();
+
+							// Find joint index by name
+							int currJointIndex = -1;
+							for (int index = 0; index != skeleton.joints.size(); ++index) {
+								if (skeleton.joints[index].jointName == currJointName)
+								{
+									currJointIndex = index;
+									continue;
+								}
+							}
+							if (currJointIndex == -1) {
+								char buffer[100];
+								sprintf_s(buffer, "Joint not found: %s\n\n", currJointName);
+								OutputDebugStringA(buffer);
+								continue;
+							}
+
+							FbxAMatrix localMatrix = currCluster->GetLink()->EvaluateLocalTransform();
+
+							skeleton.joints[currJointIndex].node = currCluster->GetLink(); // Get current joint
+							skeleton.joints[currJointIndex].localMatrix = localMatrix;
+
+							// Parse vertex joint weights
+
+							unsigned int numOfIndices = currCluster->GetControlPointIndicesCount();
+							double* controlPointWeights = currCluster->GetControlPointWeights();
+							int* controlPointIndices = currCluster->GetControlPointIndices();
+
+							for (unsigned int i = 0; i != numOfIndices; ++i)
+							{
+								IndexWeightPair pair;
+								pair.index = currJointIndex;
+								pair.weight = controlPointWeights[i];
+
+								controlPointsInfo[controlPointIndices[i]].weightPairs.push_back(pair);
+								// SAVE TO CONTROL POINTS INFO STRUCT
+							}
+
+						}
+					}
 
 					FbxVector4* pVertices = pMesh->GetControlPoints();
 
@@ -90,7 +242,7 @@ namespace FbxLoader
 						for (int k = 0; k < iNumVertices; k++) {
 							int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
 
-							MyVertex vertex;
+							FbxVertex vertex;
 							vertex.pos[0] = (float)pVertices[iControlPointIndex].mData[0];
 							vertex.pos[1] = (float)pVertices[iControlPointIndex].mData[1];
 							vertex.pos[2] = (float)pVertices[iControlPointIndex].mData[2];
