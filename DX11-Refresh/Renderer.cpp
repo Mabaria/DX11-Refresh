@@ -1,6 +1,8 @@
 #include "Renderer.h"
 
-
+float scale = 1.0f;
+float rotation = 0.0f;
+float lastscroll = 0.0f;
 
 Renderer::Renderer()
 {
@@ -121,8 +123,11 @@ void Renderer::Frame()
 	this->mDeviceContext->DrawIndexed(36, 0, 0);
 
 	
+
+	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests
-	WVP = XMMatrixScaling(6, 6, 6) * XMMatrixTranslation(0, 0, 0) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(rotation, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -139,7 +144,7 @@ void Renderer::Frame()
 	int iter = 0;
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
-
+	//this->mDeviceContext->RSSetState(RSCullNone);
 	for (auto a : testVertexBuffers)
 	{
 		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &stride, &offset);
@@ -224,6 +229,64 @@ void Renderer::LoadMesh(std::string& filepath)
 		testIndexBuffers.push_back(indBuf);
 		testIndexCount.push_back(a.Indices.size());
 	}
+}
+
+void Renderer::LoadMesh(std::string& filepath, bool fbx)
+{
+	//this->objLoader.LoadFile(filepath);
+	//std::vector<objl::Mesh> meshes = objLoader.LoadedMeshes;
+
+	MeshObject mesh;
+	mesh.LoadFBX(filepath);
+	std::vector<DirectX::XMFLOAT3>* vertexPositions = mesh.GetVertexPositionVector();
+	std::vector<int>* vertexIndices = mesh.GetIndexVector();
+	ID3D11Buffer* verBuf = nullptr;
+	ID3D11Buffer* indBuf = nullptr;
+	objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
+	for (int i = 0; i < vertexPositions->size(); ++i)
+	{
+		input_vertices[i].Position.X = (*vertexPositions)[i].x;
+		input_vertices[i].Position.Y = (*vertexPositions)[i].y;
+		input_vertices[i].Position.Z = (*vertexPositions)[i].z;
+		input_vertices[i].TextureCoordinate.X = -1.0f;
+		input_vertices[i].TextureCoordinate.Y = -1.0f;
+	}
+
+	D3D11_BUFFER_DESC vbd;
+	vbd.Usage = D3D11_USAGE_IMMUTABLE;
+	vbd.ByteWidth = sizeof(objl::Vertex) * vertexPositions->size();
+	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vbd.CPUAccessFlags = 0;
+	vbd.MiscFlags = 0;
+	vbd.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA vinitData;
+	vinitData.pSysMem = input_vertices;
+
+	HRESULT hr = this->mDevice->CreateBuffer(
+		&vbd,
+		&vinitData,
+		&verBuf
+	);
+
+
+	D3D11_BUFFER_DESC ibd;
+	ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+	ibd.Usage = D3D11_USAGE_IMMUTABLE;
+	ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA iinitData;
+	iinitData.pSysMem = vertexIndices->data();
+
+	hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+
+	testVertexBuffers.push_back(verBuf);
+	testIndexBuffers.push_back(indBuf);
+	testIndexCount.push_back(vertexIndices->size());
 }
 
 bool Renderer::Init()
@@ -1042,6 +1105,31 @@ void Renderer::HandleInput()
 	{
 		//this->mCamera->MoveCamera(DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f), speed);
 		finalMovement += DirectX::XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f);
+	}
+	if (kb.LeftControl)
+	{
+		if (mouse.scrollWheelValue > lastscroll)
+		{
+			scale *= 1.1f;
+		}
+		else if (mouse.scrollWheelValue < lastscroll)
+		{
+			scale *= 0.9f;
+		}
+		lastscroll = mouse.scrollWheelValue;
+
+	}
+	if (kb.LeftAlt)
+	{
+		if (mouse.scrollWheelValue > lastscroll)
+		{
+			rotation = fmod(rotation + 0.1f, (2.0f * DirectX::XM_PI));
+		}
+		else if (mouse.scrollWheelValue < lastscroll)
+		{
+			rotation = fmod(rotation - 0.1f, (2.0f * DirectX::XM_PI));
+		}
+		lastscroll = mouse.scrollWheelValue;
 	}
 
 	this->mCamera->MoveCamera(XMVector3Normalize(finalMovement), speed);

@@ -14,6 +14,8 @@
 #include "Keyboard.h"
 #include "Mouse.h"
 #include "Obj_Loader.h"
+#include "MeshObject.h"
+#include <math.h>
 
 using namespace DirectX;
 
@@ -50,6 +52,7 @@ public:
 	void KeyPressed(WPARAM key);
 
 	void LoadMesh(std::string &filepath);
+	void LoadMesh(std::string& filepath, bool fbx);
 
 private:
 	Camera* mCamera = nullptr;

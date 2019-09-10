@@ -15,6 +15,7 @@ struct VSOut
 	float4 Pos	 : SV_POSITION;
 	float4 Color : COLOR;
 	float2 UV	 : TEXCOORD;
+	float3 worldPos : POSITION;
 };
 
 VSOut VS(VSIn input)
@@ -23,5 +24,6 @@ VSOut VS(VSIn input)
 	output.Pos = mul(float4(input.Pos, 1.0f), gWorldViewProj);
 	output.Color = float4(0.83f, 0.83f, 0.83f, 1.0f);
 	output.UV = input.UV;
+	output.worldPos = input.Pos;
 	return output;
 }

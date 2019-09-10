@@ -42,6 +42,12 @@
     <ClInclude Include="Obj_Loader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Fbx_Loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshObject.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DX11-Refresh.cpp">
@@ -54,6 +60,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Fbx_Loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
