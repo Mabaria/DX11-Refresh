@@ -12,7 +12,8 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 #include <propvarutil.h>
-#include "Fbx_Loader.h"
+#include "MeshObject.h"
+#include <algorithm>
 
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "ole32.lib")
@@ -84,9 +85,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		6,
 		(TIMERPROC)NULL
 	);
-	std::vector<FbxVertex> vertexTest;
-	std::vector<int> indexTest;
-	FbxLoader::LoadFBX("C:\\Users\\magno\\Documents\\test2.fbx", &vertexTest, &indexTest);
+
+
     // Main message loop:
     while (GetMessage(&msg, nullptr, 0, 0))
     {
@@ -175,10 +175,11 @@ HRESULT BasicFileOpen()
 	{
 		const COMDLG_FILTERSPEC c_rgSaveTypes[] =
 		{
-			{L"OBJ Model File (*.obj)",			 L"*.obj"}
+			{L"OBJ Model File (*.obj)",			 L"*.obj"},
+			{L"FBX Model File (*.fbx)",			 L"*.fbx"}
 		};
 		// Show the Open dialog box.
-		hr = pFileOpen->SetDefaultExtension(L"obj");
+		hr = pFileOpen->SetDefaultExtension(L"fbx");
 		pFileOpen->SetFileTypes(ARRAYSIZE(c_rgSaveTypes), c_rgSaveTypes);
 		hr = pFileOpen->Show(GetActiveWindow());
 
@@ -201,8 +202,18 @@ HRESULT BasicFileOpen()
 					std::string str(file.begin(), file.end());
 
 					CoTaskMemFree(pszFilePath);
+					std::string file_type = str.substr(str.length() - 4);
+					// Convert to lower case
+					std::transform(file_type.begin(), file_type.end(), file_type.begin(), ::tolower);
+					if (file_type == ".fbx")
+					{
+						mRenderer->LoadMesh(str, true);
+					}
+					else
+					{
+						mRenderer->LoadMesh(str);
+					}
 
-					mRenderer->LoadMesh(str);
 				}
 				pItem->Release();
 			}

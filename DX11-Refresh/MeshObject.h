@@ -1,3 +1,4 @@
+#pragma once
 #include "Fbx_loader.h"
 
 class MeshObject {
@@ -12,5 +13,7 @@ private:
 public:
 	MeshObject();
 	~MeshObject();
-	void LoadFBX(const std::string& filePath);
+	HRESULT LoadFBX(const std::string& filePath);
+	std::vector<DirectX::XMFLOAT3>* GetVertexPositionVector();
+	std::vector<int>* GetIndexVector();
 };
