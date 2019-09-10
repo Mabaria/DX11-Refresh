@@ -61,7 +61,31 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 	// Import model
 
 	bool bSuccess = p_importer->Initialize(fileName.c_str(), -1, gpFbxSdkManager->GetIOSettings());
-	if (!bSuccess) return E_FAIL;
+	if (!bSuccess) {
+		FbxString error = p_importer->GetStatus().GetErrorString();
+		OutputDebugStringA("error: Call to FbxImporter::Initialize() failed.\n");
+
+		char buffer[100];
+		sprintf_s(buffer, "error: Error returned: %s\n", error.Buffer());
+		OutputDebugStringA(buffer);
+
+		if (p_importer->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion || true) {
+			int lFileMajor, lFileMinor, lFileRevision;
+			int lSDKMajor, lSDKMinor, lSDKRevision;
+			// Get the file version number generate by the FBX SDK.
+			FbxManager::GetFileFormatVersion(lSDKMajor, lSDKMinor, lSDKRevision);
+			p_importer->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
+			sprintf_s(buffer, "error: FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
+			OutputDebugStringA(buffer);
+
+			sprintf_s(buffer, "error: FBX file format version for file '%s' is %d.%d.%d\n", fileName, lFileMajor, lFileMinor,
+				lFileRevision);
+			OutputDebugStringA(buffer);
+		}
+		sprintf_s(buffer, "error: Failed to initialize the importer for '%s'.\n", fileName);
+		OutputDebugStringA(buffer);
+		return E_FAIL;;
+	}
 
 	bSuccess = p_importer->Import(pFbxScene2.get());
 	if (!bSuccess) return E_FAIL;
