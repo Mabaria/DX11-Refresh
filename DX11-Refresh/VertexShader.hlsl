@@ -24,6 +24,7 @@ VSOut VS(VSIn input)
 	output.Pos = mul(float4(input.Pos, 1.0f), gWorldViewProj);
 	output.Color = float4(0.83f, 0.83f, 0.83f, 1.0f);
 	output.UV = input.UV;
-	output.worldPos = input.Pos;
+	// Used for normal testing purposes to assign colour in the pixel shader
+	output.worldPos = input.Normal;
 	return output;
 }

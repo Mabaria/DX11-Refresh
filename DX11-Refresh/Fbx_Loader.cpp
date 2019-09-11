@@ -41,7 +41,7 @@ void FbxLoader::DisplayHierarchy(FbxScene* pScene)
 }
 */
 
-HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector)
+HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector, std::vector<DirectX::XMFLOAT3>* pOutNormalVector)
 {
 	// Create the FbxManager if it does not already exist
 	if (gpFbxSdkManager == nullptr)
@@ -220,6 +220,36 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 					vertex_pos.y = (float)p_vertices[j].mData[1];
 					vertex_pos.z = (float)p_vertices[j].mData[2];
 					pOutVertexPosVector->push_back(vertex_pos);
+
+
+					fbxsdk::FbxVector4 normal;
+					if (p_mesh->GetElementNormal(0)->GetMappingMode() != FbxGeometryElement::eByControlPoint)
+					{
+						bool test = p_mesh->GenerateNormals(true, true);
+					}
+					// Only allowing one normal per element currently
+					fbxsdk::FbxGeometryElementNormal* le_normal = p_mesh->GetElementNormal(0);
+					switch (le_normal->GetReferenceMode())
+					{
+					case FbxGeometryElement::eDirect:
+						normal = le_normal->GetDirectArray().GetAt(j).mData;
+						break;
+					case FbxGeometryElement::eIndexToDirect:
+					{
+						int index = le_normal->GetIndexArray().GetAt(j);
+						normal = le_normal->GetDirectArray().GetAt(index).mData;
+						break;
+					}
+					default:
+						throw std::exception("Invalid Fbx Normal Reference");
+					}
+					DirectX::XMFLOAT3 vertex_normal;
+					normal.Normalize();
+					vertex_normal.x = (float)normal.mData[0];
+					vertex_normal.y = (float)normal.mData[1];
+					vertex_normal.z = (float)normal.mData[2];
+					pOutNormalVector->push_back(vertex_normal);
+
 				}
 				/*for (int j = 0; j < p_mesh->GetPolygonCount(); j++)
 				{

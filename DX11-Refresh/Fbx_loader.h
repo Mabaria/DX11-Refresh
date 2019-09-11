@@ -80,7 +80,7 @@ struct Skeleton {
 	// Used for loading the very basics of an FBX
 	// Input: std::string file name of FBX file
 	// Output: Appends XMFLOAT3 vertex positions and int indices to provided vectors
-	HRESULT LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector);
+	HRESULT LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector, std::vector<DirectX::XMFLOAT3>* pOutNormalVector);
 
 	//HRESULT LoadFBX(const std::string& filename, std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector, Skeleton* skeleton);
 

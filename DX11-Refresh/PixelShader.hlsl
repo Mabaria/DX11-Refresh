@@ -29,7 +29,9 @@ PSOut PS(VSOut input) : SV_Target
 	}
 	else
 	{
-		output.Color = float4((input.worldPos + 6.0f) / 12.0f, 1.0f);
+		//output.Color = float4((input.worldPos + 6.0f) / 12.0f, 1.0f);
+		output.Color = float4(input.worldPos, 1.0f);
+		
 	}
 
 	return output;
