@@ -1,4 +1,57 @@
 #include "Fbx_Loader.h"
+
+// Anonymous namespace for Fbx_Loader
+namespace {
+	static FbxManager* gpFbxSdkManager = nullptr;
+	static FbxLoader::Skeleton skeleton;
+	void LoadUV(fbxsdk::FbxMesh* pMesh, std::vector<DirectX::XMFLOAT2>* pOutUVVector)
+	{
+		fbxsdk::FbxStringList uv_set_name_list;
+		pMesh->GetUVSetNames(uv_set_name_list);
+
+		// Only supporting one UV set, get the first in the list
+		const char* uv_set_name = uv_set_name_list.GetStringAt(0);
+		const fbxsdk::FbxGeometryElementUV* uv_element = pMesh->GetElementUV(uv_set_name);
+
+		// if no UV found
+		if (!uv_element)
+			return;
+
+		// only support mapping mode eByPolygonVertex and eByControlPoint
+		if (uv_element->GetMappingMode() != FbxGeometryElement::eByPolygonVertex &&
+			uv_element->GetMappingMode() != FbxGeometryElement::eByControlPoint)
+			return;
+		// if mode is not direct, it is index based
+		const bool use_index = uv_element->GetReferenceMode() != FbxGeometryElement::eDirect;
+		const int index_count = (use_index) ? uv_element->GetIndexArray().GetCount() : 0;
+
+		const int poly_count = pMesh->GetPolygonCount();
+
+		if (uv_element->GetMappingMode() == FbxGeometryElement::eByControlPoint)
+		{
+			// -------------------------------------------------------
+			// -------------------------------------------------------
+			// -------------INCORRECT, will save more than needed because goes through polygons
+			for (int poly_index = 0; poly_index < poly_count; ++poly_index)
+			{
+				// Three vertices per polygon
+				for (int vert_index = 0; vert_index < 3; ++vert_index)
+				{
+					FbxVector2 uv_value;
+					int poly_vert_index = pMesh->GetPolygonVertex(poly_index, vert_index);
+
+					int uv_index = use_index ? uv_element->GetIndexArray().GetAt(poly_vert_index) : poly_vert_index;
+
+					uv_value = uv_element->GetDirectArray().GetAt(uv_index);
+					DirectX::XMFLOAT2 vertex_uv;
+				}
+			}
+
+
+		}
+	}
+}
+
 /*
 void FbxLoader::DisplayHierarchy(FbxNode* node, int depth, int currIndex, int parentIndex)
 {
@@ -41,7 +94,8 @@ void FbxLoader::DisplayHierarchy(FbxScene* pScene)
 }
 */
 
-HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector, std::vector<DirectX::XMFLOAT3>* pOutNormalVector)
+HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector,
+	std::vector<DirectX::XMFLOAT3>* pOutNormalVector, std::vector<DirectX::XMFLOAT2>* pOutUVVector)
 {
 	// Create the FbxManager if it does not already exist
 	if (gpFbxSdkManager == nullptr)
@@ -206,12 +260,13 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				int index_count = p_mesh->GetPolygonVertexCount();
 				pOutIndexVector->insert(pOutIndexVector->end(), &p_indices[0], &p_indices[index_count]);
 
-				// Flip the winding order to left-handed
-				for (auto it = pOutIndexVector->begin(); it != pOutIndexVector->end(); it += 3)
-				{
-					std::swap(*it, *(it + 2));
-				}
+				//// Flip the winding order to left-handed
+				//for (auto it = pOutIndexVector->begin(); it != pOutIndexVector->end(); it += 3)
+				//{
+				//	std::swap(*it, *(it + 2));
+				//}
 
+				::LoadUV(p_mesh, pOutUVVector);
 
 				for (int j = 0; j < p_mesh->GetControlPointsCount(); ++j)
 				{
@@ -223,9 +278,10 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 
 					fbxsdk::FbxVector4 normal;
+					// If the mesh normals are not in "per vertex" mode, re-generate them to be useable by this parser
 					if (p_mesh->GetElementNormal(0)->GetMappingMode() != FbxGeometryElement::eByControlPoint)
 					{
-						bool test = p_mesh->GenerateNormals(true, true);
+						p_mesh->GenerateNormals(true, true, true);
 					}
 					// Only allowing one normal per element currently
 					fbxsdk::FbxGeometryElementNormal* le_normal = p_mesh->GetElementNormal(0);
@@ -251,55 +307,6 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 					pOutNormalVector->push_back(vertex_normal);
 
 				}
-				/*for (int j = 0; j < p_mesh->GetPolygonCount(); j++)
-				{
-
-					// Make sure the polygon is a triangle
-
-					int num_vertices = p_mesh->GetPolygonSize(j);
-					assert(num_vertices == 3 && "Mesh contains non-triangles, please triangulate the mesh.");
-
-					for (int k = 0; k < num_vertices; k++) {
-						int control_point_index = p_mesh->GetPolygonVertex(j, k);
-
-						DirectX::XMFLOAT3 vertex_pos;
-						vertex_pos.x = (float)p_vertices[control_point_index].mData[0];
-						vertex_pos.y = (float)p_vertices[control_point_index].mData[1];
-						vertex_pos.z = (float)p_vertices[control_point_index].mData[2];
-						pOutVertexPosVector->push_back(vertex_pos);*/
-
-
-						/*
-						fbxsdk::FbxVector4 nor;
-						bool hasNor = p_mesh->GetPolygonVertexNormal(j, k, nor);
-						// Check if the polygon has vertex normals
-						// if so then save in vertex
-						if (hasNor)
-						{
-							vertex.nor[0] = (float)nor.mData[0];
-							vertex.nor[1] = (float)nor.mData[1];
-							vertex.nor[2] = (float)nor.mData[2];
-						}
-
-						// Extract UVs
-						int UVSetCount = p_mesh->GetUVLayerCount();
-						if (UVSetCount > 0)
-						{
-							fbxsdk::FbxStringList UVSetNames;
-							p_mesh->GetUVSetNames(UVSetNames);
-							fbxsdk::FbxVector2 UV;
-							bool unmapped;
-							p_mesh->GetPolygonVertexUV(j, k, UVSetNames[0], UV, unmapped);
-							vertex.uv[0] = (float)UV.mData[0];
-							vertex.uv[1] = (float)UV.mData[1];
-						}
-						
-
-						//bool hasUV = p_mesh->GetPolygonVertexUV(j, k, )
-					}
-					
-				}
-				*/
 			}
 		}
 
