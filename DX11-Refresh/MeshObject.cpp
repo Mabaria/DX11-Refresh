@@ -40,3 +40,8 @@ std::vector<DirectX::XMFLOAT3>* MeshObject::GetNormalVector()
 {
 	return this->mpNormalVector;
 }
+
+std::vector<DirectX::XMFLOAT2>* MeshObject::GetUVVector()
+{
+	return this->mpUVVector;
+}

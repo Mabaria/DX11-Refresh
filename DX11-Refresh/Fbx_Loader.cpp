@@ -11,7 +11,7 @@ namespace {
 
 		// Only supporting one UV set, get the first in the list
 		const char* uv_set_name = uv_set_name_list.GetStringAt(0);
-		const fbxsdk::FbxGeometryElementUV* uv_element = pMesh->GetElementUV(uv_set_name);
+		fbxsdk::FbxGeometryElementUV* uv_element = pMesh->GetElementUV(uv_set_name);
 
 		// if no UV found
 		if (!uv_element)
@@ -26,28 +26,79 @@ namespace {
 		const int index_count = (use_index) ? uv_element->GetIndexArray().GetCount() : 0;
 
 		const int poly_count = pMesh->GetPolygonCount();
+		DirectX::XMFLOAT2 uv;
 
-		if (uv_element->GetMappingMode() == FbxGeometryElement::eByControlPoint)
+		// If uvs are stored per polygon vertex we need to convert them to per control point
+		if (uv_element->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
 		{
-			// -------------------------------------------------------
-			// -------------------------------------------------------
-			// -------------INCORRECT, will save more than needed because goes through polygons
-			for (int poly_index = 0; poly_index < poly_count; ++poly_index)
+			// Store a list of control points we've already processed
+			std::map<int, bool> processed_cp;
+			fbxsdk::FbxArray<FbxVector2> new_uvs;
+			FbxArray<int> new_index_to_direct;
+
+			for (int i = 0; i < pMesh->GetControlPointsCount(); ++i)
+				processed_cp.insert_or_assign(i, false);
+
+			for (int polygon = 0; polygon < pMesh->GetPolygonCount(); ++polygon)
 			{
-				// Three vertices per polygon
-				for (int vert_index = 0; vert_index < 3; ++vert_index)
+				for (int polygon_vertex = 0; polygon_vertex < pMesh->GetPolygonSize(polygon); ++polygon_vertex)
 				{
-					FbxVector2 uv_value;
-					int poly_vert_index = pMesh->GetPolygonVertex(poly_index, vert_index);
-
-					int uv_index = use_index ? uv_element->GetIndexArray().GetAt(poly_vert_index) : poly_vert_index;
-
-					uv_value = uv_element->GetDirectArray().GetAt(uv_index);
-					DirectX::XMFLOAT2 vertex_uv;
+					int control_point = pMesh->GetPolygonVertex(polygon, polygon_vertex);
+					// If control point not already processed
+					if (processed_cp.find(control_point)->second == false)
+					{
+						FbxVector2 uv = uv_element->GetDirectArray().GetAt(control_point);
+						new_uvs.Add(uv);
+						new_index_to_direct.Add(control_point);
+						processed_cp.insert_or_assign(control_point, true);
+					}
 				}
 			}
+			// Create the new index array
+			uv_element->SetMappingMode(FbxLayerElement::eByControlPoint);
+			uv_element->GetIndexArray().Clear();
+			uv_element->GetIndexArray().Resize(new_index_to_direct.GetCount());
+			int* index_array = (int*)uv_element->GetIndexArray().GetLocked();
+			for (int i = 0; i < new_index_to_direct.GetCount(); i++)
+			{
+				index_array[i] = new_index_to_direct.GetAt(i);
+			}
+			uv_element->GetIndexArray().Release((void**)& index_array);
 
+			// Create the new direct array
+			uv_element->GetDirectArray().Clear();
+			uv_element->GetDirectArray().Resize(new_uvs.GetCount());
+			FbxVector2* direct_array = (FbxVector2*)uv_element->GetDirectArray().GetLocked();
+			for (int j = 0; j < new_uvs.GetCount(); ++j)
+			{
+				direct_array[j] = new_uvs.GetAt(j);
+			}
+			uv_element->GetDirectArray().Release((void**)& direct_array);
+		}
+		// Process UVs
+		if (uv_element->GetMappingMode() == FbxGeometryElement::eByControlPoint)
+		{
 
+			for (int i = 0; i < pMesh->GetControlPointsCount(); ++i)
+			{
+				switch (uv_element->GetReferenceMode())
+				{
+				case FbxGeometryElement::eDirect:
+					uv.x = (float)uv_element->GetDirectArray().GetAt(i).mData[0];
+					uv.y = (float)uv_element->GetDirectArray().GetAt(i).mData[1];
+					break;
+				case FbxGeometryElement::eIndexToDirect:
+				{
+					int index = uv_element->GetIndexArray().GetAt(i);
+					uv.x = (float)uv_element->GetDirectArray().GetAt(index).mData[0];
+					uv.y = (float)uv_element->GetDirectArray().GetAt(index).mData[1];
+					break;
+				}
+				default:
+					throw std::exception("Invalid Fbx UV Reference");
+				}
+				pOutUVVector->push_back(uv);
+			}
 		}
 	}
 }
@@ -248,9 +299,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				}
 				*/
 
-					// Make sure the polygon is a triangle
-
-
+				// Make sure the polygon is a triangle
 				assert(p_mesh->IsTriangleMesh() && "Mesh contains non-triangles, please triangulate the mesh.");
 
 				FbxVector4* p_vertices = p_mesh->GetControlPoints();
@@ -260,7 +309,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				int index_count = p_mesh->GetPolygonVertexCount();
 				pOutIndexVector->insert(pOutIndexVector->end(), &p_indices[0], &p_indices[index_count]);
 
-				//// Flip the winding order to left-handed
+				//// Flip the winding order
 				//for (auto it = pOutIndexVector->begin(); it != pOutIndexVector->end(); it += 3)
 				//{
 				//	std::swap(*it, *(it + 2));

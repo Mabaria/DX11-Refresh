@@ -4,9 +4,11 @@
 #include <vector>
 #include <d3d11.h>
 #include <cassert>
+#include <map>
 #include <unordered_map>
 #include <DirectXMath.h>
 #include <memory>
+
 
 namespace FbxLoader
 {

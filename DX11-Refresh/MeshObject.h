@@ -19,4 +19,5 @@ public:
 	std::vector<DirectX::XMFLOAT3>* GetVertexPositionVector();
 	std::vector<int>* GetIndexVector();
 	std::vector<DirectX::XMFLOAT3>* GetNormalVector();
+	std::vector<DirectX::XMFLOAT2>* GetUVVector();
 };
