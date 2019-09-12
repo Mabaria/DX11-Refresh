@@ -14,8 +14,8 @@ struct VSOut
 {
 	float4 Pos	 : SV_POSITION;
 	float4 Color : COLOR;
-	float2 UV	 : TEXCOORD;
-	float3 worldPos : POSITION;
+	float2 UV	 : TEXCOORD0;
+	float3 worldPos : POSITION0;
 };
 
 VSOut VS(VSIn input)
