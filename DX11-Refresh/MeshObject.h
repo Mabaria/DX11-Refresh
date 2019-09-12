@@ -15,7 +15,9 @@ private:
 public:
 	MeshObject();
 	~MeshObject();
+	// Populates the vectors with data from provided .fbx filepath
 	HRESULT LoadFBX(const std::string& filePath);
+
 	std::vector<DirectX::XMFLOAT3>* GetVertexPositionVector();
 	std::vector<int>* GetIndexVector();
 	std::vector<DirectX::XMFLOAT3>* GetNormalVector();
