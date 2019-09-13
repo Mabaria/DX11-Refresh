@@ -102,19 +102,20 @@ namespace {
 		}
 	}
 
-	void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myIndex, int inParentIndex, FbxLoader::Skeleton* inSkeleton)
+	void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int myIndex, int inParentIndex, FbxLoader::Skeleton* inSkeleton)
 	{
 		if (inNode->GetNodeAttribute() && inNode->GetNodeAttribute()->GetAttributeType() 
 			&& inNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 		{
 			FbxLoader::Joint curr_joint;
 			curr_joint.parentIndex = inParentIndex;
+			curr_joint.currentIndex = myIndex;
 			curr_joint.jointName = inNode->GetName();
 			inSkeleton->joints.push_back(curr_joint);
 		}
 		for (int i = 0; i < inNode->GetChildCount(); ++i)
 		{
-			ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, inSkeleton->joints.size(), myIndex, inSkeleton);
+			ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inSkeleton->joints.size(), myIndex, inSkeleton);
 		}
 	}
 
@@ -123,7 +124,7 @@ namespace {
 		for (int child_index = 0; child_index < inRootNode->GetChildCount(); ++child_index)
 		{
 			FbxNode* curr_node = inRootNode->GetChild(child_index);
-			ProcessSkeletonHierarchyRecursively(curr_node, 0, 0, -1, inSkeleton);
+			ProcessSkeletonHierarchyRecursively(curr_node, 0, -1, inSkeleton);
 		}
 	}
 }
@@ -190,8 +191,15 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 	// Import model
 	bool b_success = p_importer->Initialize(fileName.c_str(), -1, gpFbxSdkManager->GetIOSettings());
+
+	FbxAxisSystem direct_x_axis_system(FbxAxisSystem::eDirectX);
+	if (p_fbx_scene.get()->GetGlobalSettings().GetAxisSystem() != direct_x_axis_system)
+	{
+		direct_x_axis_system.ConvertScene(p_fbx_scene.get());
+	}
 	// Handle failed import
-	if (!b_success) {
+	if (!b_success) 
+	{
 		FbxString error = p_importer->GetStatus().GetErrorString();
 		OutputDebugStringA("error: Call to FbxImporter::Initialize() failed.\n");
 
@@ -383,8 +391,8 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				}
 			}
 		}
-		//Skeleton testSkeleton;
-		//::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
+		Skeleton testSkeleton;
+		::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
 	}
 	return S_OK;
 }
