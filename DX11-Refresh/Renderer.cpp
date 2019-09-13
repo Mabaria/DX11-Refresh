@@ -240,6 +240,8 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 	mesh.LoadFBX(filepath);
 	std::vector<DirectX::XMFLOAT3>* vertexPositions = mesh.GetVertexPositionVector();
 	std::vector<int>* vertexIndices = mesh.GetIndexVector();
+	std::vector<DirectX::XMFLOAT3>* normals = mesh.GetNormalVector();
+	std::vector<DirectX::XMFLOAT2>* UVs = mesh.GetUVVector();
 	ID3D11Buffer* verBuf = nullptr;
 	ID3D11Buffer* indBuf = nullptr;
 	objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
@@ -248,8 +250,11 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 		input_vertices[i].Position.X = (*vertexPositions)[i].x;
 		input_vertices[i].Position.Y = (*vertexPositions)[i].y;
 		input_vertices[i].Position.Z = (*vertexPositions)[i].z;
-		input_vertices[i].TextureCoordinate.X = -1.0f;
-		input_vertices[i].TextureCoordinate.Y = -1.0f;
+		input_vertices[i].TextureCoordinate.X = (*UVs)[i].x;
+		input_vertices[i].TextureCoordinate.Y = (*UVs)[i].y;
+		input_vertices[i].Normal.X = (*normals)[i].x;
+		input_vertices[i].Normal.Y = (*normals)[i].y;
+		input_vertices[i].Normal.Z = (*normals)[i].z;
 	}
 
 	D3D11_BUFFER_DESC vbd;

@@ -2,8 +2,8 @@ struct VSOut
 {
 	float4 Pos	 : SV_POSITION;
 	float4 Color : COLOR;
-	float2 UV	 : TEXCOORD;
-	float3 worldPos : POSITION;
+	float2 UV	 : TEXCOORD0;
+	float3 worldPos : POSITION0;
 };
 
 struct PSOut
@@ -22,15 +22,9 @@ SamplerState MeshTextureSampler
 PSOut PS(VSOut input) : SV_Target
 {
 	PSOut output;
-	output.Color = input.Color;
-	if (input.UV.x > -0.5)
-	{
-		output.Color = ObjTexture.Sample(MeshTextureSampler, input.UV);
-	}
-	else
-	{
-		output.Color = float4((input.worldPos + 6.0f) / 12.0f, 1.0f);
-	}
+	//output.Color = input.Color;
+	//output.Color = ObjTexture.Sample(MeshTextureSampler, input.UV);
+	output.Color = float4(input.worldPos, 1.0f);
 
 	return output;
 }
