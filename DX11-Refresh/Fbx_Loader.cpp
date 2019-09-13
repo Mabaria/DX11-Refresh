@@ -204,7 +204,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 	//// Useful for skeleton/bone structure
 	//DisplayHierarchy(p_fbx_scene);
-
+	
 	if (p_fbx_root_node)
 	{
 		// Traverse the FBX tree

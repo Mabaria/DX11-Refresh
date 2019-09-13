@@ -24,6 +24,7 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 	}
 	//FbxLoader::LoadFBX(filePath, this->mpVertexVector, this->mpIndexVector, &this->skeleton);
 	return FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+	
 }
 
 std::vector<DirectX::XMFLOAT3>* MeshObject::GetVertexPositionVector()
