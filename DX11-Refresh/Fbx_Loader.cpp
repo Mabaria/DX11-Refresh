@@ -188,12 +188,14 @@ namespace {
 					FbxAMatrix global_bindpose_inverse_matrix;
 
 					curr_cluster->GetTransformMatrix(transform_matrix); // Bind pose mesh transform
-					curr_cluster->GetTransformLinkMatrix(transform_link_matrix); // Transformation of the joint at bind time from joint space to world space
+					curr_cluster->GetTransformLinkMatrix(transform_link_matrix); // Transformation of the joint at bind time from joint space to model space
 					global_bindpose_inverse_matrix = transform_link_matrix.Inverse() * transform_matrix * geometry_transform;
 
 					// Update skeleton
 					skeleton->joints[curr_joint_index].mGlobalBindposeInverse = global_bindpose_inverse_matrix;
 					skeleton->joints[curr_joint_index].mNode = curr_cluster->GetLink();
+
+					// TODO - Get index weight pairs - https://www.gamedev.net/articles/programming/graphics/how-to-work-with-fbx-sdk-r3582
 				}
 			}
 		}
