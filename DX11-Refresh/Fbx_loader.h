@@ -53,7 +53,9 @@ struct Joint {
 	FbxAMatrix globalMatrix;
 	FbxAMatrix localMatrix;
 	KeyFrame* animation;
-	FbxNode* node;
+	FbxNode* mNode;
+
+	FbxAMatrix mGlobalBindposeInverse;
 
 	Joint() :
 		animation(nullptr),

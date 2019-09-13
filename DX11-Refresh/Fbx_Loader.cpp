@@ -4,6 +4,34 @@
 namespace {
 	static FbxManager* gpFbxSdkManager = nullptr;
 	static FbxLoader::Skeleton skeleton;
+
+	FbxAMatrix GetGeometryTransformation(FbxNode* node)
+	{
+		if (!node) {
+			throw std::exception("Null for mesh geometry\n\n");
+		}
+
+		const FbxVector4 IT = node->GetGeometricTranslation(FbxNode::eSourcePivot);
+		const FbxVector4 IR = node->GetGeometricRotation(FbxNode::eSourcePivot);
+		const FbxVector4 IS = node->GetGeometricScaling(FbxNode::eSourcePivot);
+
+		return FbxAMatrix(IT, IR, IS);
+
+	}
+
+	unsigned int FindJointIndexUsingName(const std::string& inJointName, FbxLoader::Skeleton* skeleton)
+	{
+		for (unsigned int i = 0; i < skeleton->joints.size(); ++i)
+		{
+			if (skeleton->joints[i].jointName.Compare(inJointName.c_str()) == 0)
+			{
+				return i;
+			}
+		}
+
+		throw std::exception("Skeleton information in FBX file is corrupted.");
+	}
+
 	void LoadUV(fbxsdk::FbxMesh* pMesh, std::vector<DirectX::XMFLOAT2>* pOutUVVector)
 	{
 		fbxsdk::FbxStringList uv_set_name_list;
@@ -127,6 +155,49 @@ namespace {
 			ProcessSkeletonHierarchyRecursively(curr_node, 0, -1, inSkeleton);
 		}
 	}
+
+	void ProcessJointsAndAnimations(FbxNode* inNode, FbxLoader::Skeleton* skeleton)
+	{
+		FbxMesh* curr_mesh = inNode->GetMesh();
+		if (curr_mesh)
+		{
+			unsigned int num_deformers = curr_mesh->GetDeformerCount();
+			// geometry transform is potentially something included with the model
+			// not all modeling programs provide this
+			// including it for safety because I don't know if blender does or not
+			FbxAMatrix geometry_transform = GetGeometryTransformation(inNode);
+			// Loop through deformers
+			// Deformer is basically a skeleton
+			// Most likely only on exists in the mesh
+			for (unsigned int deformer_index = 0; deformer_index < num_deformers; ++deformer_index)
+			{
+				FbxSkin* curr_skin = static_cast<FbxSkin*>(curr_mesh->GetDeformer(deformer_index, FbxDeformer::eSkin));
+				if (!curr_skin)
+				{
+					continue;
+				}
+				// Clusters contain links, which are basically joints
+				unsigned int num_of_clusters = curr_skin->GetClusterCount();
+				for (unsigned int cluster_index = 0; cluster_index < num_of_clusters; ++cluster_index)
+				{
+					FbxCluster* curr_cluster = curr_skin->GetCluster(cluster_index);
+					std::string curr_joint_name = curr_cluster->GetLink()->GetName();
+					unsigned int curr_joint_index = FindJointIndexUsingName(curr_joint_name, skeleton);
+					FbxAMatrix transform_matrix;
+					FbxAMatrix transform_link_matrix;
+					FbxAMatrix global_bindpose_inverse_matrix;
+
+					curr_cluster->GetTransformMatrix(transform_matrix); // Bind pose mesh transform
+					curr_cluster->GetTransformLinkMatrix(transform_link_matrix); // Transformation of the joint at bind time from joint space to world space
+					global_bindpose_inverse_matrix = transform_link_matrix.Inverse() * transform_matrix * geometry_transform;
+
+					// Update skeleton
+					skeleton->joints[curr_joint_index].mGlobalBindposeInverse = global_bindpose_inverse_matrix;
+					skeleton->joints[curr_joint_index].mNode = curr_cluster->GetLink();
+				}
+			}
+		}
+	}
 }
 
 /*
@@ -198,7 +269,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 		direct_x_axis_system.ConvertScene(p_fbx_scene.get());
 	}
 	// Handle failed import
-	if (!b_success) 
+	if (!b_success)
 	{
 		FbxString error = p_importer->GetStatus().GetErrorString();
 		OutputDebugStringA("error: Call to FbxImporter::Initialize() failed.\n");
@@ -237,20 +308,23 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 	//// Useful for skeleton/bone structure
 	//DisplayHierarchy(p_fbx_scene);
-	
+
 	if (p_fbx_root_node)
 	{
+		Skeleton testSkeleton;
+		::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
+
 		// Traverse the FBX tree
 		for (int i = 0; i < p_fbx_root_node->GetChildCount(); i++)
 		{
-			FbxNode* pFbxChildNode = p_fbx_root_node->GetChild(i);
+			FbxNode* p_fbx_child_node = p_fbx_root_node->GetChild(i);
 
 			// If node has no attribute - not interested
-			if (pFbxChildNode->GetNodeAttribute() == NULL)
+			if (p_fbx_child_node->GetNodeAttribute() == NULL)
 				continue;
 
-			std::string node_name = pFbxChildNode->GetName();
-			FbxNodeAttribute::EType attribute_type = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
+			std::string node_name = p_fbx_child_node->GetName();
+			FbxNodeAttribute::EType attribute_type = p_fbx_child_node->GetNodeAttribute()->GetAttributeType();
 
 			std::unordered_map<int, ControlPointInfo> controlPointsInfo;
 
@@ -261,16 +335,17 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 			/*
 			if (attribute_type == FbxNodeAttribute::eNull)
 			{
-				pFbxChildNode = pFbxChildNode->GetChild(0);
-				attribute_type = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
-				FbxSkeleton* pSkeleton = (FbxSkeleton*)pFbxChildNode->GetNodeAttribute();
-				int num_children = pFbxChildNode->GetChildCount();
+				p_fbx_child_node = p_fbx_child_node->GetChild(0);
+				attribute_type = p_fbx_child_node->GetNodeAttribute()->GetAttributeType();
+				FbxSkeleton* pSkeleton = (FbxSkeleton*)p_fbx_child_node->GetNodeAttribute();
+				int num_children = p_fbx_child_node->GetChildCount();
 			}
 			*/
 			// Handle Mesh attribute item
 			if (attribute_type == FbxNodeAttribute::eMesh)
 			{
-				FbxMesh* p_mesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
+				FbxMesh* p_mesh = (FbxMesh*)p_fbx_child_node->GetNodeAttribute();
+				::ProcessJointsAndAnimations(p_fbx_child_node, &testSkeleton);
 
 				// ---------- SKELETON RELATED CODE -----------------
 				// ---------- SKELETON RELATED CODE -----------------
@@ -391,8 +466,6 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				}
 			}
 		}
-		Skeleton testSkeleton;
-		::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
 	}
 	return S_OK;
 }
