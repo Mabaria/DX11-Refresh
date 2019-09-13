@@ -101,6 +101,31 @@ namespace {
 			}
 		}
 	}
+
+	void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myIndex, int inParentIndex, FbxLoader::Skeleton* inSkeleton)
+	{
+		if (inNode->GetNodeAttribute() && inNode->GetNodeAttribute()->GetAttributeType() 
+			&& inNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+		{
+			FbxLoader::Joint curr_joint;
+			curr_joint.parentIndex = inParentIndex;
+			curr_joint.jointName = inNode->GetName();
+			inSkeleton->joints.push_back(curr_joint);
+		}
+		for (int i = 0; i < inNode->GetChildCount(); ++i)
+		{
+			ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, inSkeleton->joints.size(), myIndex, inSkeleton);
+		}
+	}
+
+	void ProcessSkeletonHierarchy(FbxNode* inRootNode, FbxLoader::Skeleton* inSkeleton)
+	{
+		for (int child_index = 0; child_index < inRootNode->GetChildCount(); ++child_index)
+		{
+			FbxNode* curr_node = inRootNode->GetChild(child_index);
+			ProcessSkeletonHierarchyRecursively(curr_node, 0, 0, -1, inSkeleton);
+		}
+	}
 }
 
 /*
@@ -358,7 +383,8 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				}
 			}
 		}
-
+		//Skeleton testSkeleton;
+		//::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
 	}
 	return S_OK;
 }

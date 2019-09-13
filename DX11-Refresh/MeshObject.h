@@ -8,6 +8,9 @@ private:
 	std::vector<DirectX::XMFLOAT3>* mpNormalVector = nullptr;
 	std::vector<DirectX::XMFLOAT2>* mpUVVector = nullptr;
 
+	bool mHasUvs = false;
+	bool mHasNormals = false;
+
 	// Used for skinning / skeletal animation
 	/*Skeleton skeleton;
 	std::unordered_map<int, ControlPointInfo> controlPointsInfo;*/
@@ -22,4 +25,7 @@ public:
 	std::vector<int>* GetIndexVector();
 	std::vector<DirectX::XMFLOAT3>* GetNormalVector();
 	std::vector<DirectX::XMFLOAT2>* GetUVVector();
+
+	bool HasUVs();
+	bool HasNormals();
 };

@@ -23,7 +23,38 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 		this->mpUVVector = new std::vector<DirectX::XMFLOAT2>;
 	}
 	//FbxLoader::LoadFBX(filePath, this->mpVertexVector, this->mpIndexVector, &this->skeleton);
-	return FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+	// Assume UVs and normals exist
+	HRESULT hr = FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+	if (SUCCEEDED(hr))
+	{
+		this->mHasUvs = true;
+		this->mHasNormals = true;
+		if (this->mpNormalVector->size() <= 0)
+		{
+			delete mpNormalVector;
+			mpNormalVector = nullptr;
+			this->mHasNormals = false;
+		}
+		if (this->mpUVVector->size() <= 0)
+		{
+			delete mpUVVector;
+			mpUVVector = nullptr;
+			this->mHasUvs = false;
+		}
+	}
+	else
+	{
+		delete mpVertexPosVector;
+		delete mpIndexVector;
+		delete mpNormalVector;
+		delete mpUVVector;
+		mpVertexPosVector = nullptr;
+		mpUVVector = nullptr;
+		mpNormalVector = nullptr;
+		mpIndexVector = nullptr;
+	}
+	
+	return hr;
 	
 }
 
@@ -45,4 +76,14 @@ std::vector<DirectX::XMFLOAT3>* MeshObject::GetNormalVector()
 std::vector<DirectX::XMFLOAT2>* MeshObject::GetUVVector()
 {
 	return this->mpUVVector;
+}
+
+bool MeshObject::HasUVs()
+{
+	return this->mHasUvs;
+}
+
+bool MeshObject::HasNormals()
+{
+	return this->mHasNormals;
 }
