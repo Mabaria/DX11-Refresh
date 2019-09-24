@@ -12,8 +12,9 @@ private:
 	bool mHasNormals = false;
 
 	// Used for skinning / skeletal animation
-	/*Skeleton skeleton;
-	std::unordered_map<int, ControlPointInfo> controlPointsInfo;*/
+	FbxLoader::Skeleton* mpSkeleton = nullptr;
+	std::vector<FbxLoader::ControlPointInfo>* mpSkinningWeights = nullptr;
+	bool mHasSkeleton = false;
 
 public:
 	MeshObject();
@@ -26,6 +27,10 @@ public:
 	std::vector<DirectX::XMFLOAT3>* GetNormalVector();
 	std::vector<DirectX::XMFLOAT2>* GetUVVector();
 
+	FbxLoader::Skeleton* GetSkeleton();
+	std::vector<FbxLoader::ControlPointInfo>* GetSkinningWeights();
+
 	bool HasUVs();
 	bool HasNormals();
+	bool HasSkeleton();
 };

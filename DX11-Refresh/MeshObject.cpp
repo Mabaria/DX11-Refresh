@@ -21,13 +21,13 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 		this->mpVertexPosVector = new std::vector<DirectX::XMFLOAT3>;
 		this->mpNormalVector = new std::vector<DirectX::XMFLOAT3>;
 		this->mpUVVector = new std::vector<DirectX::XMFLOAT2>;
+		this->mpSkeleton = new FbxLoader::Skeleton();
+		this->mpSkinningWeights = new std::vector<FbxLoader::ControlPointInfo>;
 	}
-	//FbxLoader::LoadFBX(filePath, this->mpVertexVector, this->mpIndexVector, &this->skeleton);
-	// Assume UVs and normals exist
 	HRESULT hr = E_FAIL;
 	try
 	{
-		hr = FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+		hr = FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector, this->mpSkeleton, this->mpSkinningWeights);
 	}
 	catch (std::exception e)
 	{
@@ -36,8 +36,10 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 	
 	if (SUCCEEDED(hr))
 	{
+		// Assume UVs and normals exist
 		this->mHasUvs = true;
 		this->mHasNormals = true;
+		this->mHasSkeleton = true;
 		if (this->mpNormalVector->size() <= 0)
 		{
 			delete mpNormalVector;
@@ -49,6 +51,14 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 			delete mpUVVector;
 			mpUVVector = nullptr;
 			this->mHasUvs = false;
+		}
+		if (this->mpSkeleton->joints.size() <= 0)
+		{
+			delete this->mpSkeleton;
+			delete this->mpSkinningWeights;
+			this->mpSkinningWeights = nullptr;
+			mpSkeleton = nullptr;
+			this->mHasSkeleton = false;
 		}
 	}
 	else
@@ -87,6 +97,16 @@ std::vector<DirectX::XMFLOAT2>* MeshObject::GetUVVector()
 	return this->mpUVVector;
 }
 
+FbxLoader::Skeleton* MeshObject::GetSkeleton()
+{
+	return this->mpSkeleton;
+}
+
+std::vector<FbxLoader::ControlPointInfo>* MeshObject::GetSkinningWeights()
+{
+	return this->mpSkinningWeights;
+}
+
 bool MeshObject::HasUVs()
 {
 	return this->mHasUvs;
@@ -95,4 +115,9 @@ bool MeshObject::HasUVs()
 bool MeshObject::HasNormals()
 {
 	return this->mHasNormals;
+}
+
+bool MeshObject::HasSkeleton()
+{
+	return this->mHasSkeleton;
 }

@@ -1,7 +1,7 @@
 #include "Renderer.h"
 
 float scale = 1.0f;
-float rotation = 0.0f;
+float rotation = -1.5708f;
 float lastscroll = 0.0f;
 
 Renderer::Renderer()
@@ -68,13 +68,14 @@ void Renderer::Frame()
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
-	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
 	this->mDeviceContext->ClearDepthStencilView(
 		this->mDepthStencilView,
 		D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 		1.0f,
 		0
 	);
+	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
+
 
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

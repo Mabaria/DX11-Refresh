@@ -29,7 +29,28 @@ namespace {
 			}
 		}
 
-		throw std::exception("Skeleton information in FBX file is corrupted.");
+		throw std::exception("Skeleton information in FBX file is corrupted or invalid.");
+	}
+	// Traverse the tree of nodes depth-first and return the first mesh found
+	FbxMesh* FindMesh(FbxNode* currentNode)
+	{
+		FbxMesh* mesh = nullptr;
+		if (mesh = currentNode->GetMesh())
+		{
+			return mesh;
+		}
+		else
+		{
+			for (int i = 0; i < currentNode->GetChildCount(); ++i)
+			{
+				FbxNode* child = currentNode->GetChild(i);
+				if (mesh = FindMesh(child))
+				{
+					return mesh;
+				}
+			}
+			return nullptr;
+		}
 	}
 
 	void LoadUV(fbxsdk::FbxMesh* pMesh, std::vector<DirectX::XMFLOAT2>* pOutUVVector)
@@ -147,6 +168,7 @@ namespace {
 		}
 	}
 
+	// Traverse the Fbx and populate the Skeleton struct with the joints inside
 	void ProcessSkeletonHierarchy(FbxNode* inRootNode, FbxLoader::Skeleton* inSkeleton)
 	{
 		for (int child_index = 0; child_index < inRootNode->GetChildCount(); ++child_index)
@@ -210,7 +232,7 @@ namespace {
 					skeleton->joints[curr_joint_index].mGlobalBindposeInverse = global_bindpose_inverse_matrix;
 					skeleton->joints[curr_joint_index].mNode = curr_cluster->GetLink();
 
-					// TODO - Get index weight pairs - https://www.gamedev.net/articles/programming/graphics/how-to-work-with-fbx-sdk-r3582
+					// Get index weight pairs - https://www.gamedev.net/articles/programming/graphics/how-to-work-with-fbx-sdk-r3582
 					// https://github.com/Larry955/FbxParser/blob/master/FbxParser/FbxParser.cpp - Rad 781 och 993
 
 					// Fbx has every joint store the vertices it affects, we need to reverse this relationship
@@ -232,50 +254,10 @@ namespace {
 
 }
 
-/*
-void FbxLoader::DisplayHierarchy(FbxNode* node, int depth, int currIndex, int parentIndex)
-{
-	FbxString jointName = node->GetName();
-	//Display the hierarchy
-	FbxString nodeNameBuf("");
-	for (int i = 0; i != depth; ++i) {
-		nodeNameBuf += "   ";
-	}
-	nodeNameBuf += jointName;
-	nodeNameBuf += "\n";
-	char buffer[100];
-	sprintf_s(buffer, nodeNameBuf.Buffer());
-	OutputDebugStringA(buffer);
 
-	//if the type of current node is Skeleton, then it's a joint
-	if (node->GetNodeAttribute() && node->GetNodeAttribute()->GetAttributeType() &&
-		node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
-		Joint jointTmp;
-		jointTmp.jointName = jointName;
-		jointTmp.parentIndex = parentIndex;		//parent index
-		jointTmp.currentIndex = currIndex;
-		skeleton.joints.push_back(jointTmp);
-	}
-
-	//Display the hierarchy recursively
-	for (int i = 0; i != node->GetChildCount(); ++i) {
-		DisplayHierarchy(node->GetChild(i), depth + 1, skeleton.joints.size(), currIndex);
-	}
-}
-
-void FbxLoader::DisplayHierarchy(FbxScene* pScene)
-{
-	OutputDebugStringA("\n\n---------------------------Hierarchy-------------------------------\n\n");
-	FbxNode* rootNode = pScene->GetRootNode();
-	int childCount = rootNode->GetChildCount();
-	for (int i = 0; i != childCount; ++i) {
-		DisplayHierarchy(rootNode->GetChild(i), 0, 0, -1);
-	}
-}
-*/
 
 HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector,
-	std::vector<DirectX::XMFLOAT3>* pOutNormalVector, std::vector<DirectX::XMFLOAT2>* pOutUVVector)
+	std::vector<DirectX::XMFLOAT3>* pOutNormalVector, std::vector<DirectX::XMFLOAT2>* pOutUVVector, Skeleton* pOutSkeleton, std::vector<ControlPointInfo>* pOutCPInfoVector)
 {
 	// Create the FbxManager if it does not already exist
 	if (gpFbxSdkManager == nullptr)
@@ -336,7 +318,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 
 	FbxNode* p_fbx_root_node = p_fbx_scene->GetRootNode();
-
+	
 
 	FbxAxisSystem scene_axis_system = p_fbx_scene->GetGlobalSettings().GetAxisSystem();
 	FbxAxisSystem our_axis_system = FbxAxisSystem::eDirectX;
@@ -350,39 +332,12 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 	if (p_fbx_root_node)
 	{
-		Skeleton testSkeleton;
-		::ProcessSkeletonHierarchy(p_fbx_root_node, &testSkeleton);
+		::ProcessSkeletonHierarchy(p_fbx_root_node, pOutSkeleton);
 
-		// Traverse the FBX tree
-		for (int i = 0; i < p_fbx_root_node->GetChildCount(); i++)
-		{
-			FbxNode* p_fbx_child_node = p_fbx_root_node->GetChild(i);
-
-			// If node has no attribute - not interested
-			if (p_fbx_child_node->GetNodeAttribute() == NULL)
-				continue;
-
-			std::string node_name = p_fbx_child_node->GetName();
-			FbxNodeAttribute::EType attribute_type = p_fbx_child_node->GetNodeAttribute()->GetAttributeType();
-
-
-			// ---------- SKELETON RELATED CODE -----------------
-			// Handle Skeleton
-			// Skeletons in the FBX are stored with a null type root node
-			// Go one step deeper to reach the skeleton
-			/*
-			if (attribute_type == FbxNodeAttribute::eNull)
+			FbxNode* root_child = p_fbx_scene->GetRootNode();
+			FbxMesh* p_mesh = ::FindMesh(p_fbx_root_node);
+			if (p_mesh)
 			{
-				p_fbx_child_node = p_fbx_child_node->GetChild(0);
-				attribute_type = p_fbx_child_node->GetNodeAttribute()->GetAttributeType();
-				FbxSkeleton* pSkeleton = (FbxSkeleton*)p_fbx_child_node->GetNodeAttribute();
-				int num_children = p_fbx_child_node->GetChildCount();
-			}
-			*/
-			// Handle Mesh attribute item
-			if (attribute_type == FbxNodeAttribute::eMesh)
-			{
-				FbxMesh* p_mesh = (FbxMesh*)p_fbx_child_node->GetNodeAttribute();
 
 				// Make sure the mesh is triangulated
 				if (!p_mesh->IsTriangleMesh())
@@ -444,14 +399,21 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 				}
 
-				// In progress, very likely to break
-				std::vector<ControlPointInfo> vertex_joint_data;
-				// Prepare the vector with ControlPointInfo objects to be written to in any order
-				vertex_joint_data.resize(p_mesh->GetControlPointsCount());
-				::ProcessJointsAndAnimations(p_fbx_child_node, &testSkeleton, &vertex_joint_data);
-				int k = 632;
+				if (pOutSkeleton->joints.size() > 0)
+				{
+					// In progress, very likely to break
+					std::vector<ControlPointInfo> vertex_joint_data;
+					// Prepare the vector with ControlPointInfo objects to be written to in any order
+					vertex_joint_data.resize(p_mesh->GetControlPointsCount());
+					::ProcessJointsAndAnimations(p_mesh->GetNode(), pOutSkeleton, &vertex_joint_data);
+					int k = 632;
+				}
+
 			}
-		}
+			else
+			{
+				throw std::exception("No mesh found in .fbx file");
+			}
 	}
 	return S_OK;
 }
