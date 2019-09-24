@@ -30,11 +30,14 @@ struct IndexWeightPair
 	{}
 };
 
+
+
 struct ControlPointInfo
 {
-	FbxVector4 ctrlPoint;
 	std::vector<IndexWeightPair> weightPairs;
 };
+
+
 
 //This stores the information of each key frame of each Joint
 struct KeyFrame {
@@ -59,7 +62,7 @@ struct Joint {
 
 	Joint() :
 		animation(nullptr),
-		node(nullptr)
+		mNode(nullptr)
 	{
 		localMatrix.SetIdentity();
 		globalMatrix.SetIdentity();

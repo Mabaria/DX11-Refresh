@@ -244,61 +244,65 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 	std::vector<DirectX::XMFLOAT2>* UVs = mesh.GetUVVector();
 	ID3D11Buffer* verBuf = nullptr;
 	ID3D11Buffer* indBuf = nullptr;
-	objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
-	for (int i = 0; i < vertexPositions->size(); ++i)
+	if (vertexIndices)
 	{
-		input_vertices[i].Position.X = (*vertexPositions)[i].x;
-		input_vertices[i].Position.Y = (*vertexPositions)[i].y;
-		input_vertices[i].Position.Z = (*vertexPositions)[i].z;
-		if (mesh.HasUVs())
+		objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
+		for (int i = 0; i < vertexPositions->size(); ++i)
 		{
-			input_vertices[i].TextureCoordinate.X = (*UVs)[i].x;
-			input_vertices[i].TextureCoordinate.Y = (*UVs)[i].y;
-		}
-		if (mesh.HasNormals())
-		{
-			input_vertices[i].Normal.X = (*normals)[i].x;
-			input_vertices[i].Normal.Y = (*normals)[i].y;
-			input_vertices[i].Normal.Z = (*normals)[i].z;
+			input_vertices[i].Position.X = (*vertexPositions)[i].x;
+			input_vertices[i].Position.Y = (*vertexPositions)[i].y;
+			input_vertices[i].Position.Z = (*vertexPositions)[i].z;
+			if (mesh.HasUVs())
+			{
+				input_vertices[i].TextureCoordinate.X = (*UVs)[i].x;
+				input_vertices[i].TextureCoordinate.Y = (*UVs)[i].y;
+			}
+			if (mesh.HasNormals())
+			{
+				input_vertices[i].Normal.X = (*normals)[i].x;
+				input_vertices[i].Normal.Y = (*normals)[i].y;
+				input_vertices[i].Normal.Z = (*normals)[i].z;
+			}
+
 		}
 
+		D3D11_BUFFER_DESC vbd;
+		vbd.Usage = D3D11_USAGE_IMMUTABLE;
+		vbd.ByteWidth = sizeof(objl::Vertex) * vertexPositions->size();
+		vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vbd.CPUAccessFlags = 0;
+		vbd.MiscFlags = 0;
+		vbd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA vinitData;
+		vinitData.pSysMem = input_vertices;
+
+		HRESULT hr = this->mDevice->CreateBuffer(
+			&vbd,
+			&vinitData,
+			&verBuf
+		);
+
+
+		D3D11_BUFFER_DESC ibd;
+		ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+		ibd.Usage = D3D11_USAGE_IMMUTABLE;
+		ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
+		ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		ibd.CPUAccessFlags = 0;
+		ibd.MiscFlags = 0;
+		ibd.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA iinitData;
+		iinitData.pSysMem = vertexIndices->data();
+
+		hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+
+		testVertexBuffers.push_back(verBuf);
+		testIndexBuffers.push_back(indBuf);
+		testIndexCount.push_back(vertexIndices->size());
 	}
 
-	D3D11_BUFFER_DESC vbd;
-	vbd.Usage = D3D11_USAGE_IMMUTABLE;
-	vbd.ByteWidth = sizeof(objl::Vertex) * vertexPositions->size();
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vbd.CPUAccessFlags = 0;
-	vbd.MiscFlags = 0;
-	vbd.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA vinitData;
-	vinitData.pSysMem = input_vertices;
-
-	HRESULT hr = this->mDevice->CreateBuffer(
-		&vbd,
-		&vinitData,
-		&verBuf
-	);
-
-
-	D3D11_BUFFER_DESC ibd;
-	ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
-	ibd.Usage = D3D11_USAGE_IMMUTABLE;
-	ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	ibd.CPUAccessFlags = 0;
-	ibd.MiscFlags = 0;
-	ibd.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA iinitData;
-	iinitData.pSysMem = vertexIndices->data();
-
-	hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
-
-	testVertexBuffers.push_back(verBuf);
-	testIndexBuffers.push_back(indBuf);
-	testIndexCount.push_back(vertexIndices->size());
 }
 
 bool Renderer::Init()

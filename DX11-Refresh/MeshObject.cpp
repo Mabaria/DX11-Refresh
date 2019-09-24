@@ -24,7 +24,16 @@ HRESULT MeshObject::LoadFBX(const std::string& filePath)
 	}
 	//FbxLoader::LoadFBX(filePath, this->mpVertexVector, this->mpIndexVector, &this->skeleton);
 	// Assume UVs and normals exist
-	HRESULT hr = FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+	HRESULT hr = E_FAIL;
+	try
+	{
+		hr = FbxLoader::LoadFBX(filePath, this->mpVertexPosVector, this->mpIndexVector, this->mpNormalVector, this->mpUVVector);
+	}
+	catch (std::exception e)
+	{
+		MessageBoxA(NULL, e.what(), "Error in FBX Loader.", MB_OK);
+	}
+	
 	if (SUCCEEDED(hr))
 	{
 		this->mHasUvs = true;

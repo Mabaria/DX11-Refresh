@@ -156,7 +156,22 @@ namespace {
 		}
 	}
 
-	void ProcessJointsAndAnimations(FbxNode* inNode, FbxLoader::Skeleton* skeleton)
+	void CheckSumOfWeights(std::vector<FbxLoader::ControlPointInfo>* jointData) {
+		for (auto it = jointData->begin(); it != jointData->end(); ++it)
+		{
+			double sum_of_weights = 0.0;
+			for (auto it2 = it->weightPairs.begin(); it2 != it->weightPairs.end(); ++it2)
+			{
+				sum_of_weights += it2->weight;
+			}
+			if ((sum_of_weights - 1.0) > 0.0005 || (sum_of_weights - 1.0) < -0.0005)
+			{
+				throw std::exception("Vertex weights do not add up to 1, please normalize the vertex weights.");
+			}
+		}
+	}
+
+	void ProcessJointsAndAnimations(FbxNode* inNode, FbxLoader::Skeleton* skeleton, std::vector<FbxLoader::ControlPointInfo>* jointData )
 	{
 		FbxMesh* curr_mesh = inNode->GetMesh();
 		if (curr_mesh)
@@ -196,10 +211,25 @@ namespace {
 					skeleton->joints[curr_joint_index].mNode = curr_cluster->GetLink();
 
 					// TODO - Get index weight pairs - https://www.gamedev.net/articles/programming/graphics/how-to-work-with-fbx-sdk-r3582
+					// https://github.com/Larry955/FbxParser/blob/master/FbxParser/FbxParser.cpp - Rad 781 och 993
+
+					// Fbx has every joint store the vertices it affects, we need to reverse this relationship
+					unsigned int num_of_indices = curr_cluster->GetControlPointIndicesCount();
+					for (unsigned int i = 0; i < num_of_indices; ++i)
+					{
+						FbxLoader::IndexWeightPair curr_index_weight_pair;
+						curr_index_weight_pair.index = curr_joint_index;
+						curr_index_weight_pair.weight = curr_cluster->GetControlPointWeights()[i];
+						(*jointData)[curr_cluster->GetControlPointIndices()[i]].weightPairs.push_back(curr_index_weight_pair);
+					}
+
 				}
 			}
+			CheckSumOfWeights(jointData);
 		}
 	}
+
+
 }
 
 /*
@@ -280,7 +310,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 		sprintf_s(buffer, "error: Error returned: %s\n", error.Buffer());
 		OutputDebugStringA(buffer);
 		// Error checking, print to visual studio debug window
-		if (p_importer->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion || true) {
+		if (p_importer->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion) {
 			int lFileMajor, lFileMinor, lFileRevision;
 			int lSDKMajor, lSDKMinor, lSDKRevision;
 			// Get the file version number generate by the FBX SDK.
@@ -308,7 +338,14 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 	FbxNode* p_fbx_root_node = p_fbx_scene->GetRootNode();
 
 
-	//// Useful for skeleton/bone structure
+	FbxAxisSystem scene_axis_system = p_fbx_scene->GetGlobalSettings().GetAxisSystem();
+	FbxAxisSystem our_axis_system = FbxAxisSystem::eDirectX;
+	if (scene_axis_system != our_axis_system)
+	{
+		our_axis_system.ConvertScene(p_fbx_scene.get());
+	}
+
+	// Useful for skeleton/bone structure
 	//DisplayHierarchy(p_fbx_scene);
 
 	if (p_fbx_root_node)
@@ -328,7 +365,6 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 			std::string node_name = p_fbx_child_node->GetName();
 			FbxNodeAttribute::EType attribute_type = p_fbx_child_node->GetNodeAttribute()->GetAttributeType();
 
-			std::unordered_map<int, ControlPointInfo> controlPointsInfo;
 
 			// ---------- SKELETON RELATED CODE -----------------
 			// Handle Skeleton
@@ -347,74 +383,12 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 			if (attribute_type == FbxNodeAttribute::eMesh)
 			{
 				FbxMesh* p_mesh = (FbxMesh*)p_fbx_child_node->GetNodeAttribute();
-				::ProcessJointsAndAnimations(p_fbx_child_node, &testSkeleton);
-
-				// ---------- SKELETON RELATED CODE -----------------
-				// ---------- SKELETON RELATED CODE -----------------
-				// ---------- SKELETON RELATED CODE -----------------
-				/*
-				// Deformer is basically a skeleton, so there will most likely only be one deformer per mesh
-				unsigned int numOfDeformers = p_mesh->GetDeformerCount();
-				for (unsigned int deformerIndex = 0; deformerIndex != numOfDeformers; ++deformerIndex)
-				{
-					FbxSkin* currSkin = reinterpret_cast<FbxSkin*>(p_mesh->GetDeformer(deformerIndex, FbxDeformer::eSkin));
-					// If skin not found
-
-					if (!currSkin)
-					{
-						continue;
-					}
-
-					// Cluster == bone
-					unsigned int numOfClusters = currSkin->GetClusterCount();
-					for (unsigned int clusterIndex = 0; clusterIndex != numOfClusters; ++clusterIndex)
-					{
-						FbxCluster* currCluster = currSkin->GetCluster(clusterIndex);
-						FbxString currJointName = currCluster->GetLink()->GetName();
-
-						// Find joint index by name
-						int currJointIndex = -1;
-						for (int index = 0; index != skeleton.joints.size(); ++index) {
-							if (skeleton.joints[index].jointName == currJointName)
-							{
-								currJointIndex = index;
-								continue;
-							}
-						}
-						if (currJointIndex == -1) {
-							char buffer[100];
-							sprintf_s(buffer, "Joint not found: %s\n\n", currJointName);
-							OutputDebugStringA(buffer);
-							continue;
-						}
-
-						FbxAMatrix localMatrix = currCluster->GetLink()->EvaluateLocalTransform();
-
-						skeleton.joints[currJointIndex].node = currCluster->GetLink(); // Get current joint
-						skeleton.joints[currJointIndex].localMatrix = localMatrix;
-
-						// Parse vertex joint weights
-
-						unsigned int numOfIndices = currCluster->GetControlPointIndicesCount();
-						double* controlPointWeights = currCluster->GetControlPointWeights();
-						int* controlPointIndices = currCluster->GetControlPointIndices();
-
-						for (unsigned int i = 0; i != numOfIndices; ++i)
-						{
-							IndexWeightPair pair;
-							pair.index = currJointIndex;
-							pair.weight = controlPointWeights[i];
-
-							controlPointsInfo[controlPointIndices[i]].weightPairs.push_back(pair);
-							// SAVE TO CONTROL POINTS INFO STRUCT
-						}
-
-					}
-				}
-				*/
 
 				// Make sure the mesh is triangulated
-				assert(p_mesh->IsTriangleMesh() && "Mesh contains non-triangles, please triangulate the mesh.");
+				if (!p_mesh->IsTriangleMesh())
+				{
+					throw std::exception("Mesh contains non-triangles, please triangulate the mesh.");
+				}
 
 				FbxVector4* p_vertices = p_mesh->GetControlPoints();
 
@@ -434,6 +408,9 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 					vertex_pos.z = (float)p_vertices[j].mData[2];
 					pOutVertexPosVector->push_back(vertex_pos);
 
+
+					// Save to control point info map 
+					//control_points_info[j].ctrlPoint = p_mesh->GetControlPointAt(j);
 
 					fbxsdk::FbxVector4 normal;
 					// If the mesh normals are not in "per vertex" mode, re-generate them to be useable by this parser
@@ -466,6 +443,13 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 					pOutNormalVector->push_back(vertex_normal);
 
 				}
+
+				// In progress, very likely to break
+				std::vector<ControlPointInfo> vertex_joint_data;
+				// Prepare the vector with ControlPointInfo objects to be written to in any order
+				vertex_joint_data.resize(p_mesh->GetControlPointsCount());
+				::ProcessJointsAndAnimations(p_fbx_child_node, &testSkeleton, &vertex_joint_data);
+				int k = 632;
 			}
 		}
 	}
