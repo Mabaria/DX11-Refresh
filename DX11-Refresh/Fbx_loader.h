@@ -9,6 +9,8 @@
 #include <DirectXMath.h>
 #include <memory>
 
+#define MAX_NUM_WEIGHTS_PER_VERTEX 4
+
 
 namespace FbxLoader
 {
@@ -34,39 +36,37 @@ struct IndexWeightPair
 
 struct ControlPointInfo
 {
-	std::vector<IndexWeightPair> weightPairs;
+	IndexWeightPair weightPairs[4];
 };
 
 
 
 //This stores the information of each key frame of each Joint
 struct KeyFrame {
-	FbxLongLong frameNum;
-	FbxAMatrix globalTransform;	//transform matrix
-	KeyFrame* next;
+	FbxLongLong mFrameNum;
+	FbxAMatrix mGlobalTransform;	//transform matrix
+	FbxAMatrix mLocalTransform;
+	KeyFrame* mNext;
 	KeyFrame() :
-		next(nullptr)
+		mNext(nullptr) 
 	{}
 };
 
 struct Joint {
-	FbxString jointName;
-	int currentIndex;	//index of current joint	
-	int parentIndex;	//index to its parent joint
-	FbxAMatrix globalMatrix;
-	FbxAMatrix localMatrix;
-	KeyFrame* animation;
+	std::string mName;
+	int mParentIndex;	//index to its parent joint
+	KeyFrame* mAnimation;
 	FbxNode* mNode;
 
 	FbxAMatrix mGlobalBindposeInverse;
+	FbxAMatrix mBoneGlobalTransform;
+
 
 	Joint() :
-		animation(nullptr),
+		mAnimation(nullptr),
 		mNode(nullptr)
 	{
-		localMatrix.SetIdentity();
-		globalMatrix.SetIdentity();
-		parentIndex = -1;
+		mParentIndex = -1;
 	}
 };
 

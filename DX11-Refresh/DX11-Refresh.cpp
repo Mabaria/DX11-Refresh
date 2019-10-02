@@ -170,7 +170,6 @@ HRESULT BasicFileOpen()
 	// Create the FileOpenDialog object.
 	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
 		IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
-
 	if (SUCCEEDED(hr))
 	{
 		const COMDLG_FILTERSPEC c_rgSaveTypes[] =

@@ -121,3 +121,4 @@ bool MeshObject::HasSkeleton()
 {
 	return this->mHasSkeleton;
 }
+
