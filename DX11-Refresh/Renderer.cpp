@@ -3,6 +3,7 @@
 float scale = 1.0f;
 float rotation = -0.0f;
 float lastscroll = 0.0f;
+int currentAnimFrame = 0;
 
 Renderer::Renderer()
 {
@@ -128,7 +129,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests ------ 
 	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(20.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -160,12 +161,15 @@ void Renderer::Frame()
 	{
 		std::vector<XMFLOAT4X4> temp;
 		int iter = 0;
+		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
 		for (auto j : this->skinSkeletons[0]->joints)
 		{
-			this->skinSkeletons[0]->joints[iter].mAnimation = this->skinSkeletons[0]->joints[iter].mAnimation->mNext;
+			//this->skinSkeletons[0]->joints[iter].mAnimation = this->skinSkeletons[0]->joints[iter].mAnimation->mNext;
 			FbxAMatrix tempFbxMatrix;
 			tempFbxMatrix = (j.mGlobalBindposeInverse * j.mAnimation->mGlobalTransform);
-			
+			tempFbxMatrix = j.mOffsetMatrix;
+			tempFbxMatrix = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
+			//tempFbxMatrix = FbxAMatrix();
 			XMFLOAT4X4 newMat;
 			// Convert FbxMatrix to XMFLOAT
 			for (int i = 0; i < 4; ++i)
@@ -441,7 +445,8 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 				{
 					// I dont know what the fuck im doing
 					// tempFbxMatrix = a.mGlobalBindposeInverse.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), FbxVector4(1.0f, 1.0f, 1.0f)) * a.mGlobalBindposeInverse;
-					tempFbxMatrix = a.mGlobalBindposeInverse * a.mAnimation->mGlobalTransform;
+					//tempFbxMatrix = a.mGlobalBindposeInverse * a.mAnimation->mGlobalTransform;
+					tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
 					//tempFbxMatrix = a.mAnimation->mGlobalTransform;
 					XMFLOAT4X4 newMat;
 					// Convert FbxMatrix to XMFLOAT

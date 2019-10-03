@@ -208,6 +208,7 @@ namespace {
 			for (unsigned int deformer_index = 0; deformer_index < num_deformers; ++deformer_index)
 			{
 				FbxSkin* curr_skin = static_cast<FbxSkin*>(curr_mesh->GetDeformer(deformer_index, FbxDeformer::eSkin));
+				
 				if (!curr_skin)
 				{
 					continue;
@@ -222,6 +223,7 @@ namespace {
 
 					std::string curr_joint_name = curr_cluster->GetLink()->GetName();
 					unsigned int curr_joint_index = FindJointIndexUsingName(curr_joint_name, skeleton);
+					FbxLoader::Joint* curr_joint = &skeleton->joints[curr_joint_index];
 					FbxAMatrix transform_matrix;
 					FbxAMatrix bind_pose_matrix;
 					FbxAMatrix global_bindpose_inverse_matrix;
@@ -248,61 +250,6 @@ namespace {
 						temp[curr_cluster->GetControlPointIndices()[i]].push_back(curr_index_weight_pair);
 					}
 
-					// --------- NEW ANIMATION CODE --------- 
-					int num_animations = inNode->GetScene()->GetSrcObjectCount<FbxAnimStack>();
-					for (int animation_index = 0; animation_index < num_animations; ++animation_index)
-					{
-						FbxAnimStack* anim_stack = FbxCast<FbxAnimStack>(inNode->GetScene()->GetSrcObject<FbxAnimStack>());
-						FbxAnimEvaluator* anim_evaluator = inNode->GetScene()->GetAnimationEvaluator();
-						
-						int num_layers = anim_stack->GetMemberCount();
-						for (int layer_index = 0; layer_index < num_layers; ++layer_index)
-						{
-							FbxAnimLayer* anim_layer = (FbxAnimLayer*)anim_stack->GetMember(layer_index);
-							
-							FbxAnimCurve* translation_curve = curr_cluster->GetLink()->LclTranslation.GetCurve(anim_layer);
-							FbxAnimCurve* rotation_curve = curr_cluster->GetLink()->LclRotation.GetCurve(anim_layer);
-							FbxAnimCurve* scaling_curve = curr_cluster->GetLink()->LclScaling.GetCurve(anim_layer);
-
-							if (scaling_curve != 0)
-							{
-								int num_keys = scaling_curve->KeyGetCount();
-								for (int key_index = 0; key_index < num_keys; ++key_index)
-								{
-									FbxTime frame_time = scaling_curve->KeyGetTime(key_index);
-									FbxDouble3 scaling_vector = curr_cluster->GetLink()->EvaluateLocalScaling(frame_time);
-									float x = (float)scaling_vector[0];
-									float y = (float)scaling_vector[1];
-									float z = (float)scaling_vector[2];
-									float frame_seconds = (float)frame_time.GetSecondDouble();
-								}	
-							}
-							else
-							{
-								// If this layer has no scaling, use default
-								FbxDouble3 scaling_vector = curr_cluster->GetLink()->LclScaling.Get();
-								float x = (float)scaling_vector[0];
-								float y = (float)scaling_vector[1];
-								float z = (float)scaling_vector[2];
-							}
-							if (rotation_curve != 0)
-							{
-								int num_keys = rotation_curve->KeyGetCount();
-								for (int key_index = 0; key_index < num_keys; ++key_index)
-								{
-									FbxTime frame_time = rotation_curve->KeyGetTime(key_index);
-									FbxDouble3 rotation_vector = curr_cluster->GetLink()->EvaluateLocalRotation(frame_time);
-									float x = (float)rotation_vector[0];
-									float y = (float)rotation_vector[1];
-									float z = (float)rotation_vector[2];
-									float frame_seconds = (float)frame_time.GetSecondDouble();
-								}
-							}
-						}
-					}
-
-					// -------------------------------------- 
-
 					// Get animation information
 					FbxLongLong animation_length;
 					std::string animation_name;
@@ -315,38 +262,55 @@ namespace {
 						FbxString anim_stack_name = curr_anim_stack->GetName();
 						animation_name = anim_stack_name.Buffer();
 						FbxTakeInfo* take_info = p_scene->GetTakeInfo(anim_stack_name);
-						FbxTime start = take_info->mLocalTimeSpan.GetStart();
-						FbxTime end = take_info->mLocalTimeSpan.GetStop();
+						FbxTime start = curr_anim_stack->GetLocalTimeSpan().GetStart();
+						FbxTime end = curr_anim_stack->GetLocalTimeSpan().GetStop();
 						animation_length = end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1;
 
 
 						FbxLoader::KeyFrame** curr_anim = &skeleton->joints[curr_joint_index].mAnimation;
 						
+						FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(0.0f);
+						FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(0.0f);
+						curr_joint->mBoneLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
+						if (curr_joint_index == 0)
+						{
+							curr_joint->mBoneGlobalTransform = curr_joint->mBoneLocalTransform;
+						}
+						else
+						{
+							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * curr_joint->mBoneLocalTransform;
+						}
+						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse();
+						curr_joint->mOffsetMatrix = curr_joint->mGlobalBindposeInverse * curr_joint->mBoneGlobalTransform;
+
+						unsigned int loopCounter = 0;
+						curr_joint->mAnimationVector.reserve(animation_length);
 						for (FbxLongLong i = start.GetFrameCount(FbxTime::eFrames24); i <= end.GetFrameCount(FbxTime::eFrames24); ++i)
 						{
 							FbxTime curr_time;
 							curr_time.SetFrame(i, FbxTime::eFrames24);
 							*curr_anim = new FbxLoader::KeyFrame();
 							(*curr_anim)->mFrameNum = i;
-							FbxAMatrix currentTransformOffset;
-							currentTransformOffset = boneRootNode->EvaluateGlobalTransform(); // Works but rotates everything around root axis
-							FbxAMatrix localTransform = curr_cluster->GetLink()->EvaluateGlobalTransform(curr_time);
-							(*curr_anim)->mGlobalTransform = currentTransformOffset.Inverse() * localTransform;
 
-
-							// boneGlobalTransform = Bonelocaltransform * parentboneglobaltransform
-
-							/* //From lang article, does not work on bones further down
-							currentTransformOffset = inNode->EvaluateGlobalTransform(curr_time);
-							(*curr_anim)->mGlobalTransform = currentTransformOffset.Inverse() * curr_cluster->GetLink()->EvaluateGlobalTransform(curr_time);*/
-							if (i + 1 > end.GetFrameCount(FbxTime::eFrames24)) // Loop the animation if we're on the last frame
+							FbxLoader::KeyFrame newSystemKeyFrame;
+							newSystemKeyFrame.mFrameNum = i;
+							
+							rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(curr_time);
+							transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(curr_time);
+							newSystemKeyFrame.mLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
+							if (curr_joint_index == 0)
 							{
-								(*curr_anim)->mNext = skeleton->joints[curr_joint_index].mAnimation;
+								newSystemKeyFrame.mGlobalTransform = newSystemKeyFrame.mLocalTransform;
 							}
-							curr_anim = &((*curr_anim)->mNext);
+							else
+							{
+								newSystemKeyFrame.mGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform * newSystemKeyFrame.mLocalTransform;
+							}
+							// Transpose because we are working with column-vector matrices, DirectX expects row-vector matrices
+							newSystemKeyFrame.mOffsetMatrix = (curr_joint->mGlobalBindposeInverse * newSystemKeyFrame.mGlobalTransform).Transpose();
 
-
-
+							curr_joint->mAnimationVector.push_back(newSystemKeyFrame);
+							loopCounter++;
 						}
 					
 					}
@@ -447,12 +411,12 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 	FbxNode* p_fbx_root_node = p_fbx_scene->GetRootNode();
 	
 
-	FbxAxisSystem scene_axis_system = p_fbx_scene->GetGlobalSettings().GetAxisSystem();
-	FbxAxisSystem our_axis_system = FbxAxisSystem::eDirectX;
-	if (scene_axis_system != our_axis_system)
-	{
-		our_axis_system.ConvertScene(p_fbx_scene.get());
-	}
+	//FbxAxisSystem scene_axis_system = p_fbx_scene->GetGlobalSettings().GetAxisSystem();
+	//FbxAxisSystem our_axis_system = FbxAxisSystem::eDirectX;
+	//if (scene_axis_system != our_axis_system)
+	//{
+	//	our_axis_system.ConvertScene(p_fbx_scene.get());
+	//}
 
 	// Useful for skeleton/bone structure
 	//DisplayHierarchy(p_fbx_scene);

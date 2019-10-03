@@ -46,6 +46,7 @@ struct KeyFrame {
 	FbxLongLong mFrameNum;
 	FbxAMatrix mGlobalTransform;	//transform matrix
 	FbxAMatrix mLocalTransform;
+	FbxAMatrix mOffsetMatrix;
 	KeyFrame* mNext;
 	KeyFrame() :
 		mNext(nullptr) 
@@ -56,11 +57,13 @@ struct Joint {
 	std::string mName;
 	int mParentIndex;	//index to its parent joint
 	KeyFrame* mAnimation;
+	std::vector<KeyFrame> mAnimationVector;
 	FbxNode* mNode;
 
 	FbxAMatrix mGlobalBindposeInverse;
 	FbxAMatrix mBoneGlobalTransform;
-
+	FbxAMatrix mBoneLocalTransform;
+	FbxAMatrix mOffsetMatrix;
 
 	Joint() :
 		mAnimation(nullptr),
