@@ -1,8 +1,9 @@
 #include "Renderer.h"
 
 float scale = 1.0f;
-float rotation = 0.0f;
+float rotation = -0.0f;
 float lastscroll = 0.0f;
+int currentAnimFrame = 0;
 
 Renderer::Renderer()
 {
@@ -32,7 +33,7 @@ Renderer::~Renderer()
 	SafeRelease(&this->mRenderTargetView);
 	SafeRelease(&this->mDepthStencilBuffer);
 	SafeRelease(&this->mDepthStencilView);
-	SafeRelease(&this->mInputLayout);
+	SafeRelease(&this->mDefaultInputLayout);
 	SafeRelease(&this->mRasterState);
 	SafeRelease(&this->mSwapChain);
 	SafeRelease(&this->mWVPBuffer);
@@ -68,25 +69,26 @@ void Renderer::Frame()
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
-	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
 	this->mDeviceContext->ClearDepthStencilView(
 		this->mDepthStencilView,
 		D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 		1.0f,
 		0
 	);
+	this->mDeviceContext->ClearRenderTargetView(this->mRenderTargetView, this->mClearColor);
+
 
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
-
+	this->mDeviceContext->IASetInputLayout(mDefaultInputLayout);
 	// ----- Render sphere
 	this->mDeviceContext->IASetIndexBuffer(this->sphereIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->sphereVertBuffer, &stride, &offset);
 
 	auto WVP = this->sphereWorld * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
-	VS_CONSTANT_BUFFER vsConstData;
+	VS_WVP_CONSTANT_BUFFER vsConstData;
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
 		this->mWVPBuffer,
@@ -125,9 +127,9 @@ void Renderer::Frame()
 	
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	// ------ Render tests
+	// ------ Render tests ------ 
 	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(rotation, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(20.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -141,15 +143,86 @@ void Renderer::Frame()
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
 	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
 	this->mDeviceContext->RSSetState(this->mRasterState);
-	int iter = 0;
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
 	//this->mDeviceContext->RSSetState(RSCullNone);
+	int iter = 0;
 	for (auto a : testVertexBuffers)
 	{
 		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &stride, &offset);
 		this->mDeviceContext->IASetIndexBuffer(testIndexBuffers[iter], DXGI_FORMAT_R32_UINT, 0);
 		this->mDeviceContext->DrawIndexed(testIndexCount[iter], 0, 0);
+		iter++;
+	}
+
+	// ------ Render Skinned Meshes ------ 
+
+	if (rotation > 0.01f || rotation < -0.01f)
+	{
+		std::vector<XMFLOAT4X4> temp;
+		int iter = 0;
+		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
+		for (auto j : this->skinSkeletons[0]->joints)
+		{
+			//this->skinSkeletons[0]->joints[iter].mAnimation = this->skinSkeletons[0]->joints[iter].mAnimation->mNext;
+			FbxAMatrix tempFbxMatrix;
+			tempFbxMatrix = (j.mGlobalBindposeInverse * j.mAnimation->mGlobalTransform);
+			tempFbxMatrix = j.mOffsetMatrix;
+			tempFbxMatrix = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
+			//tempFbxMatrix = FbxAMatrix();
+			XMFLOAT4X4 newMat;
+			// Convert FbxMatrix to XMFLOAT
+			for (int i = 0; i < 4; ++i)
+			{
+				for (int j = 0; j < 4; ++j)
+				{
+					newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
+				}
+			}
+			temp.push_back(newMat);
+			skinBoneMatrices[0][iter++] = newMat;
+		}
+		VS_BONE_CONSTANT_BUFFER vsConstData = {};
+		for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < 35; i++)
+		{
+			vsConstData.mBoneTransforms[i] = temp[i];
+		}
+
+		this->mDeviceContext->UpdateSubresource(
+			this->mBoneTransformBuffer,
+			0,
+			NULL,
+			&vsConstData,
+			0,
+			0
+		);
+		
+		rotation = 0.0f;
+	}
+	this->mDeviceContext->IASetInputLayout(mSkinInputLayout);
+	this->mDeviceContext->VSSetShader(this->mSkinVertexShader, NULL, 0);
+	this->mDeviceContext->VSSetConstantBuffers(1, 1, &this->mBoneTransformBuffer);
+	UINT skinStride = sizeof(SkinVertex);
+	iter = 0;
+	for (auto a : skinVertexBuffers)
+	{
+		VS_BONE_CONSTANT_BUFFER vsBoneData = {};
+		for (int i = 0; i < skinBoneMatrices[0].size() && i < 35; i++)
+		{
+			vsBoneData.mBoneTransforms[i] = skinBoneMatrices[0][i];
+		}
+		//XMStoreFloat4x4(&vsBoneData.mBoneTransforms[9], XMMatrixRotationX(rotation));
+		this->mDeviceContext->UpdateSubresource(
+			this->mBoneTransformBuffer,
+			0,
+			NULL,
+			&vsBoneData,
+			0,
+			0
+		);
+		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &skinStride, &offset);
+		this->mDeviceContext->IASetIndexBuffer(skinIndexBuffers[iter], DXGI_FORMAT_R32_UINT, 0);
+		this->mDeviceContext->DrawIndexed(skinIndexCount[iter], 0, 0);
 		iter++;
 	}
 
@@ -233,8 +306,6 @@ void Renderer::LoadMesh(std::string& filepath)
 
 void Renderer::LoadMesh(std::string& filepath, bool fbx)
 {
-	//this->objLoader.LoadFile(filepath);
-	//std::vector<objl::Mesh> meshes = objLoader.LoadedMeshes;
 
 	MeshObject mesh;
 	mesh.LoadFBX(filepath);
@@ -242,56 +313,178 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 	std::vector<int>* vertexIndices = mesh.GetIndexVector();
 	std::vector<DirectX::XMFLOAT3>* normals = mesh.GetNormalVector();
 	std::vector<DirectX::XMFLOAT2>* UVs = mesh.GetUVVector();
+	FbxLoader::Skeleton* skeleton = mesh.GetSkeleton();
+	std::vector<FbxLoader::ControlPointInfo>* skinWeights = mesh.GetSkinningWeights();
 	ID3D11Buffer* verBuf = nullptr;
 	ID3D11Buffer* indBuf = nullptr;
-	objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
-	for (int i = 0; i < vertexPositions->size(); ++i)
+	if (vertexIndices)
 	{
-		input_vertices[i].Position.X = (*vertexPositions)[i].x;
-		input_vertices[i].Position.Y = (*vertexPositions)[i].y;
-		input_vertices[i].Position.Z = (*vertexPositions)[i].z;
-		input_vertices[i].TextureCoordinate.X = (*UVs)[i].x;
-		input_vertices[i].TextureCoordinate.Y = (*UVs)[i].y;
-		input_vertices[i].Normal.X = (*normals)[i].x;
-		input_vertices[i].Normal.Y = (*normals)[i].y;
-		input_vertices[i].Normal.Z = (*normals)[i].z;
+		// Non-skinned mesh
+		if (!skeleton)
+		{
+			objl::Vertex* input_vertices = new objl::Vertex[vertexPositions->size()];
+			for (int i = 0; i < vertexPositions->size(); ++i)
+			{
+				input_vertices[i].Position.X = (*vertexPositions)[i].x;
+				input_vertices[i].Position.Y = (*vertexPositions)[i].y;
+				input_vertices[i].Position.Z = (*vertexPositions)[i].z;
+				if (mesh.HasUVs())
+				{
+					input_vertices[i].TextureCoordinate.X = (*UVs)[i].x;
+					input_vertices[i].TextureCoordinate.Y = (*UVs)[i].y;
+				}
+				if (mesh.HasNormals())
+				{
+					input_vertices[i].Normal.X = (*normals)[i].x;
+					input_vertices[i].Normal.Y = (*normals)[i].y;
+					input_vertices[i].Normal.Z = (*normals)[i].z;
+				}
+
+			}
+
+			D3D11_BUFFER_DESC vbd;
+			vbd.Usage = D3D11_USAGE_IMMUTABLE;
+			vbd.ByteWidth = sizeof(objl::Vertex) * vertexPositions->size();
+			vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+			vbd.CPUAccessFlags = 0;
+			vbd.MiscFlags = 0;
+			vbd.StructureByteStride = 0;
+
+			D3D11_SUBRESOURCE_DATA vinitData;
+			vinitData.pSysMem = input_vertices;
+
+			HRESULT hr = this->mDevice->CreateBuffer(
+				&vbd,
+				&vinitData,
+				&verBuf
+			);
+
+
+			D3D11_BUFFER_DESC ibd;
+			ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+			ibd.Usage = D3D11_USAGE_IMMUTABLE;
+			ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
+			ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			ibd.CPUAccessFlags = 0;
+			ibd.MiscFlags = 0;
+			ibd.StructureByteStride = 0;
+
+			D3D11_SUBRESOURCE_DATA iinitData;
+			iinitData.pSysMem = vertexIndices->data();
+
+			hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+
+			testVertexBuffers.push_back(verBuf);
+			testIndexBuffers.push_back(indBuf);
+			testIndexCount.push_back(vertexIndices->size());
+		}
+		else
+		{
+			SkinVertex* input_vertices = new SkinVertex[vertexPositions->size()];
+			for (int i = 0; i < vertexPositions->size(); ++i)
+			{
+				input_vertices[i].Pos.x = (*vertexPositions)[i].x;
+				input_vertices[i].Pos.y = (*vertexPositions)[i].y;
+				input_vertices[i].Pos.z = (*vertexPositions)[i].z;
+				if (mesh.HasUVs())
+				{
+					input_vertices[i].Texcoord.x = (*UVs)[i].x;
+					input_vertices[i].Texcoord.y = (*UVs)[i].y;
+				}
+				if (mesh.HasNormals())
+				{
+					input_vertices[i].Normal.x = (*normals)[i].x;
+					input_vertices[i].Normal.y = (*normals)[i].y;
+					input_vertices[i].Normal.z = (*normals)[i].z;
+				}
+				input_vertices[i].BlendWeights.x = (*skinWeights)[i].weightPairs[0].weight;
+				input_vertices[i].BlendIndices.x = (*skinWeights)[i].weightPairs[0].index;
+				input_vertices[i].BlendWeights.y = (*skinWeights)[i].weightPairs[1].weight;
+				input_vertices[i].BlendIndices.y = (*skinWeights)[i].weightPairs[1].index;
+				input_vertices[i].BlendWeights.z = (*skinWeights)[i].weightPairs[2].weight;
+				input_vertices[i].BlendIndices.z = (*skinWeights)[i].weightPairs[2].index;
+				input_vertices[i].BlendIndices.w = (*skinWeights)[i].weightPairs[3].index;
+				// Last weight not needed as it can be calculated in the shader
+			}
+
+				D3D11_BUFFER_DESC vbd;
+				vbd.Usage = D3D11_USAGE_IMMUTABLE;
+				vbd.ByteWidth = sizeof(SkinVertex) * vertexPositions->size();
+				vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+				vbd.CPUAccessFlags = 0;
+				vbd.MiscFlags = 0;
+				vbd.StructureByteStride = 0;
+
+				D3D11_SUBRESOURCE_DATA vinitData;
+				vinitData.pSysMem = input_vertices;
+
+				HRESULT hr = this->mDevice->CreateBuffer(
+					&vbd,
+					&vinitData,
+					&verBuf
+				);
+
+
+				D3D11_BUFFER_DESC ibd;
+				ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
+				ibd.Usage = D3D11_USAGE_IMMUTABLE;
+				ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
+				ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+				ibd.CPUAccessFlags = 0;
+				ibd.MiscFlags = 0;
+				ibd.StructureByteStride = 0;
+
+				D3D11_SUBRESOURCE_DATA iinitData;
+				iinitData.pSysMem = vertexIndices->data();
+
+				hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
+				std::vector<XMFLOAT4X4> temp;
+				FbxAMatrix tempFbxMatrix;
+
+				for (auto a : skeleton->joints)
+				{
+					// I dont know what the fuck im doing
+					// tempFbxMatrix = a.mGlobalBindposeInverse.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), FbxVector4(1.0f, 1.0f, 1.0f)) * a.mGlobalBindposeInverse;
+					//tempFbxMatrix = a.mGlobalBindposeInverse * a.mAnimation->mGlobalTransform;
+					tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
+					//tempFbxMatrix = a.mAnimation->mGlobalTransform;
+					XMFLOAT4X4 newMat;
+					// Convert FbxMatrix to XMFLOAT
+					for (int i = 0; i < 4; ++i)
+					{
+						for (int j = 0; j < 4; ++j)
+						{
+								newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
+							
+						}
+					}
+					if (a.mName == std::string("Hand.l"))
+					{
+						//XMStoreFloat4x4(&newMat, XMMatrixRotationY(1.57079632679f));
+					}
+					temp.push_back(newMat);
+				}
+				skinBoneMatrices.push_back(temp);
+				VS_BONE_CONSTANT_BUFFER vsConstData = {};
+				for (int i = 0; i < skeleton->joints.size() && i < 35; i++)
+				{
+					vsConstData.mBoneTransforms[i] = temp[i];
+				}
+				
+				this->mDeviceContext->UpdateSubresource(
+					this->mBoneTransformBuffer,
+					0,
+					NULL,
+					&vsConstData,
+					0,
+					0
+				);
+				skinVertexBuffers.push_back(verBuf);
+				skinIndexBuffers.push_back(indBuf);
+				skinIndexCount.push_back(vertexIndices->size());
+				skinSkeletons.push_back(skeleton);
+		}
 	}
-
-	D3D11_BUFFER_DESC vbd;
-	vbd.Usage = D3D11_USAGE_IMMUTABLE;
-	vbd.ByteWidth = sizeof(objl::Vertex) * vertexPositions->size();
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vbd.CPUAccessFlags = 0;
-	vbd.MiscFlags = 0;
-	vbd.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA vinitData;
-	vinitData.pSysMem = input_vertices;
-
-	HRESULT hr = this->mDevice->CreateBuffer(
-		&vbd,
-		&vinitData,
-		&verBuf
-	);
-
-
-	D3D11_BUFFER_DESC ibd;
-	ZeroMemory(&ibd, sizeof(D3D11_BUFFER_DESC));
-	ibd.Usage = D3D11_USAGE_IMMUTABLE;
-	ibd.ByteWidth = sizeof(UINT) * vertexIndices->size();
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	ibd.CPUAccessFlags = 0;
-	ibd.MiscFlags = 0;
-	ibd.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA iinitData;
-	iinitData.pSysMem = vertexIndices->data();
-
-	hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
-
-	testVertexBuffers.push_back(verBuf);
-	testIndexBuffers.push_back(indBuf);
-	testIndexCount.push_back(vertexIndices->size());
 }
 
 bool Renderer::Init()
@@ -573,7 +766,8 @@ bool Renderer::CreateShadersAndInputLayout()
 {
 	// Compile vertex shader
 	ID3DBlob* vs_blob = nullptr;
-	HRESULT hr = D3DCompileFromFile(
+	HRESULT hr;
+	hr = D3DCompileFromFile(
 		L"VertexShader.hlsl",
 		nullptr,
 		nullptr,
@@ -604,12 +798,52 @@ bool Renderer::CreateShadersAndInputLayout()
 		return false;
 	}
 
+
+
+	// Compile skinning VS
+
+	ID3DBlob* skin_vs_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"SkinningVS.hlsl",
+		nullptr,
+		nullptr,
+		"SKIN_VS",
+		"vs_5_0",
+		0,
+		0,
+		&skin_vs_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Skinning Vertex Shader failed", 0, 0);
+		return false;
+	}
+
+	// Create skinning VS
+
+	hr = this->mDevice->CreateVertexShader(
+		skin_vs_blob->GetBufferPointer(),
+		skin_vs_blob->GetBufferSize(),
+		nullptr,
+		&mSkinVertexShader
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateVertexShader failed for skin_vs", 0, 0);
+		return false;
+	}
+
+
+
 	// Create input layout
 
 	D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
 	{
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
 
@@ -618,7 +852,7 @@ bool Renderer::CreateShadersAndInputLayout()
 		3,
 		vs_blob->GetBufferPointer(),
 		vs_blob->GetBufferSize(),
-		&this->mInputLayout
+		&this->mDefaultInputLayout
 	);
 
 	if (FAILED(hr))
@@ -627,9 +861,27 @@ bool Renderer::CreateShadersAndInputLayout()
 		return false;
 	}
 	// Set the input layout
-	this->mDeviceContext->IASetInputLayout(this->mInputLayout);
+	this->mDeviceContext->IASetInputLayout(this->mDefaultInputLayout);
 
-	vs_blob->Release();
+	// Create input layout for skinning VS
+	D3D11_INPUT_ELEMENT_DESC skinVertexDesc[] =
+	{
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"BLENDINDICES", 0, DXGI_FORMAT_R32G32B32A32_SINT, 0, 44, D3D11_INPUT_PER_VERTEX_DATA, 0}
+	};
+
+	hr = mDevice->CreateInputLayout(
+		skinVertexDesc,
+		5,
+		skin_vs_blob->GetBufferPointer(),
+		skin_vs_blob->GetBufferSize(),
+		&this->mSkinInputLayout
+	);
+
+
 	// Compile pixel shader
 	ID3DBlob* ps_blob = nullptr;
 	hr = D3DCompileFromFile(
@@ -662,6 +914,8 @@ bool Renderer::CreateShadersAndInputLayout()
 		return false;
 	}
 
+	skin_vs_blob->Release();
+	vs_blob->Release();
 	ps_blob->Release();
 
 	//------ Skybox shaders below -----------------------------------
@@ -747,11 +1001,11 @@ bool Renderer::CreateConstantBuffers()
 
 	DirectX::XMMATRIX wvp = DirectX::XMMatrixMultiply(view, proj);
 
-	VS_CONSTANT_BUFFER vsConstData;
+	VS_WVP_CONSTANT_BUFFER vsConstData;
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, wvp);
 	// Fill in a buffer description.
 	D3D11_BUFFER_DESC cbDesc;
-	cbDesc.ByteWidth = sizeof(VS_CONSTANT_BUFFER);
+	cbDesc.ByteWidth = sizeof(VS_WVP_CONSTANT_BUFFER);
 	cbDesc.Usage = D3D11_USAGE_DEFAULT;
 	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	cbDesc.CPUAccessFlags = 0;
@@ -770,6 +1024,24 @@ bool Renderer::CreateConstantBuffers()
 	if (FAILED(hr))
 	{
 		MessageBox(0, L"CreateBuffer for WVP failed", 0, 0);
+		return false;
+	}
+
+	VS_BONE_CONSTANT_BUFFER vsSkeletonData;
+	
+	D3D11_BUFFER_DESC skincbDesc;
+	skincbDesc.ByteWidth = sizeof(VS_BONE_CONSTANT_BUFFER);
+	skincbDesc.Usage = D3D11_USAGE_DEFAULT;
+	skincbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	skincbDesc.CPUAccessFlags = 0;
+	skincbDesc.MiscFlags = 0;
+	skincbDesc.StructureByteStride = 0;
+
+	hr = this->mDevice->CreateBuffer(&skincbDesc, NULL, &this->mBoneTransformBuffer);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateBuffer for boneTransformBuffer failed", 0, 0);
 		return false;
 	}
 	return true;
@@ -1054,7 +1326,7 @@ void Renderer::updateWVP(float dt)
 	newWorld *= XMMatrixScaling(50.0f, 0.1f, 50.0f);
 	DirectX::XMMATRIX wvp = XMMatrixTranspose(DirectX::XMMatrixMultiply(DirectX::XMMatrixMultiply(newWorld, view), proj));
 
-	VS_CONSTANT_BUFFER vsConstData;
+	VS_WVP_CONSTANT_BUFFER vsConstData;
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, wvp);
 
 	this->mDeviceContext->UpdateSubresource(

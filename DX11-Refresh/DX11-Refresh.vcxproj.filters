@@ -13,7 +13,7 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Shader Files">
+    <Filter Include="Source Files\Shader Files">
       <UniqueIdentifier>{a9ca01de-0f01-4633-8ae2-e32966fe67b9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -84,16 +84,19 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
     <FxCompile Include="PixelShader.hlsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
     <FxCompile Include="SkyboxVS.hlsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
     <FxCompile Include="SkyboxPS.hlsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Source Files\Shader Files</Filter>
+    </FxCompile>
+    <FxCompile Include="SkinningVS.hlsl">
+      <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

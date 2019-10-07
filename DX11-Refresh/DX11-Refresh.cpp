@@ -170,16 +170,15 @@ HRESULT BasicFileOpen()
 	// Create the FileOpenDialog object.
 	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
 		IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
-
 	if (SUCCEEDED(hr))
 	{
 		const COMDLG_FILTERSPEC c_rgSaveTypes[] =
 		{
-			{L"OBJ Model File (*.obj)",			 L"*.obj"},
-			{L"FBX Model File (*.fbx)",			 L"*.fbx"}
+			{L"FBX Model File (*.fbx)",			 L"*.fbx"},
+			{L"OBJ Model File (*.obj)",			 L"*.obj"}
 		};
 		// Show the Open dialog box.
-		hr = pFileOpen->SetDefaultExtension(L"fbx");
+		hr = pFileOpen->SetDefaultExtension(L".fbx");
 		pFileOpen->SetFileTypes(ARRAYSIZE(c_rgSaveTypes), c_rgSaveTypes);
 		hr = pFileOpen->Show(GetActiveWindow());
 

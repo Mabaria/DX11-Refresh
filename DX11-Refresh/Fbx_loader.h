@@ -9,6 +9,8 @@
 #include <DirectXMath.h>
 #include <memory>
 
+#define MAX_NUM_WEIGHTS_PER_VERTEX 4
+
 
 namespace FbxLoader
 {
@@ -30,38 +32,44 @@ struct IndexWeightPair
 	{}
 };
 
+
+
 struct ControlPointInfo
 {
-	FbxVector4 ctrlPoint;
-	std::vector<IndexWeightPair> weightPairs;
+	IndexWeightPair weightPairs[4];
 };
+
+
 
 //This stores the information of each key frame of each Joint
 struct KeyFrame {
-	FbxLongLong frameNum;
-	FbxAMatrix globalTransform;	//transform matrix
-	KeyFrame* next;
+	FbxLongLong mFrameNum;
+	FbxAMatrix mGlobalTransform;	//transform matrix
+	FbxAMatrix mLocalTransform;
+	FbxAMatrix mOffsetMatrix;
+	KeyFrame* mNext;
 	KeyFrame() :
-		next(nullptr)
+		mNext(nullptr) 
 	{}
 };
 
 struct Joint {
-	FbxString jointName;
-	int currentIndex;	//index of current joint	
-	int parentIndex;	//index to its parent joint
-	FbxAMatrix globalMatrix;
-	FbxAMatrix localMatrix;
-	KeyFrame* animation;
-	FbxNode* node;
+	std::string mName;
+	int mParentIndex;	//index to its parent joint
+	KeyFrame* mAnimation;
+	std::vector<KeyFrame> mAnimationVector;
+	FbxNode* mNode;
+
+	FbxAMatrix mGlobalBindposeInverse;
+	FbxAMatrix mBoneGlobalTransform;
+	FbxAMatrix mBoneLocalTransform;
+	FbxAMatrix mOffsetMatrix;
 
 	Joint() :
-		animation(nullptr),
-		node(nullptr)
+		mAnimation(nullptr),
+		mNode(nullptr)
 	{
-		localMatrix.SetIdentity();
-		globalMatrix.SetIdentity();
-		parentIndex = -1;
+		mParentIndex = -1;
 	}
 };
 
@@ -77,7 +85,7 @@ struct Skeleton {
 	// Input: std::string file name of FBX file, pointers to std::vectors to append the data to
 	// Output: Appends XMFLOAT3 vertex positions and int indices to provided vectors
 	HRESULT LoadFBX(const std::string& fileName, std::vector<DirectX::XMFLOAT3>* pOutVertexPosVector, std::vector<int>* pOutIndexVector,
-		std::vector<DirectX::XMFLOAT3>* pOutNormalVector, std::vector<DirectX::XMFLOAT2>* pOutUVVector);
+		std::vector<DirectX::XMFLOAT3>* pOutNormalVector, std::vector<DirectX::XMFLOAT2>* pOutUVVector, Skeleton* pOutSkeleton, std::vector<ControlPointInfo>* pOutCPInfoVector);
 
 	//HRESULT LoadFBX(const std::string& filename, std::vector<FbxVertex>* pOutVertexVector, std::vector<int>* pOutIndexVector, Skeleton* skeleton);
 

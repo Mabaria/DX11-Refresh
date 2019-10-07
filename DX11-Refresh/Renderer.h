@@ -35,9 +35,23 @@ struct Vertex
 	DirectX::XMFLOAT2 Texcoord;
 };
 
-struct VS_CONSTANT_BUFFER
+struct SkinVertex
+{
+	DirectX::XMFLOAT3 Pos;
+	DirectX::XMFLOAT3 Normal;
+	DirectX::XMFLOAT2 Texcoord;
+	DirectX::XMFLOAT3 BlendWeights;
+	DirectX::XMINT4	  BlendIndices;
+};
+
+struct VS_WVP_CONSTANT_BUFFER
 {
 	DirectX::XMFLOAT4X4 mWorldViewProj;
+};
+
+struct VS_BONE_CONSTANT_BUFFER
+{
+	DirectX::XMFLOAT4X4 mBoneTransforms[35];
 };
 
 class Renderer
@@ -86,6 +100,12 @@ private:
 	std::vector<ID3D11Buffer*> testVertexBuffers;
 	std::vector<int> testIndexCount;
 
+	std::vector<FbxLoader::Skeleton*> skinSkeletons;
+	std::vector<std::vector<XMFLOAT4X4>> skinBoneMatrices;
+	std::vector<ID3D11Buffer*> skinIndexBuffers;
+	std::vector<ID3D11Buffer*> skinVertexBuffers;
+	std::vector<int> skinIndexCount;
+
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;
 	ID3D11VertexShader* mCubeVertexShader = nullptr;
@@ -100,6 +120,7 @@ private:
 	float mClearColor[4] = { 0.5f, 0.0f, 0.5f, 1.0f };
 
 	ID3D11Buffer* mWVPBuffer = nullptr;
+	ID3D11Buffer* mBoneTransformBuffer = nullptr;
 
 	ID3D11RasterizerState* mRasterState = nullptr;
 
@@ -113,7 +134,10 @@ private:
 	ID3D11DepthStencilView* mDepthStencilView = nullptr;
 	D3D11_VIEWPORT vp;
 
-	ID3D11InputLayout* mInputLayout;
+	ID3D11InputLayout* mDefaultInputLayout;
+	ID3D11InputLayout* mSkinInputLayout;
+
+	ID3D11VertexShader* mSkinVertexShader = nullptr;
 
 	bool Init();
 	bool CreateVertexBuffers();
