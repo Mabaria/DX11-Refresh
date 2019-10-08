@@ -281,6 +281,7 @@ namespace {
 							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * curr_joint->mBoneLocalTransform;
 						}
 						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse();
+						//curr_joint->mGlobalBindposeInverse = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f, 1.0f), curr_joint->mBoneGlobalTransform.GetR(), curr_joint->mBoneGlobalTransform.GetS()).Inverse();
 						curr_joint->mOffsetMatrix = curr_joint->mGlobalBindposeInverse * curr_joint->mBoneGlobalTransform;
 
 						unsigned int loopCounter = 0;
@@ -297,7 +298,10 @@ namespace {
 							
 							rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(curr_time);
 							transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(curr_time);
+							FbxAMatrix quatTest1 = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), rot, FbxVector4(1.0f, 1.0f, 1.0f));
+							FbxQuaternion quatTest2 = quatTest1.GetQ();
 							newSystemKeyFrame.mLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
+
 							if (curr_joint_index == 0)
 							{
 								newSystemKeyFrame.mGlobalTransform = newSystemKeyFrame.mLocalTransform;
@@ -306,9 +310,12 @@ namespace {
 							{
 								newSystemKeyFrame.mGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform * newSystemKeyFrame.mLocalTransform;
 							}
-							// Transpose because we are working with column-vector matrices, DirectX expects row-vector matrices
-							newSystemKeyFrame.mOffsetMatrix = (curr_joint->mGlobalBindposeInverse * newSystemKeyFrame.mGlobalTransform).Transpose();
-
+							
+							newSystemKeyFrame.mOffsetMatrix = (curr_joint->mGlobalBindposeInverse * newSystemKeyFrame.mGlobalTransform);
+							FbxVector4 offsetTranslation = newSystemKeyFrame.mOffsetMatrix.GetT();
+							// Convert to correct coordinate system (maybe?)
+							newSystemKeyFrame.mOffsetMatrix = FbxAMatrix(FbxVector4(-offsetTranslation[1], offsetTranslation[0], -offsetTranslation[2], offsetTranslation[3]), newSystemKeyFrame.mOffsetMatrix.GetR(), newSystemKeyFrame.mOffsetMatrix.GetS());
+							newSystemKeyFrame.mOffsetMatrix = newSystemKeyFrame.mOffsetMatrix.Transpose();
 							curr_joint->mAnimationVector.push_back(newSystemKeyFrame);
 							loopCounter++;
 						}

@@ -129,7 +129,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests ------ 
 	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(20.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
