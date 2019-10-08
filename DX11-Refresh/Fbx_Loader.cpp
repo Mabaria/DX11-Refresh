@@ -282,7 +282,7 @@ namespace {
 						}
 						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse();
 						//curr_joint->mGlobalBindposeInverse = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f, 1.0f), curr_joint->mBoneGlobalTransform.GetR(), curr_joint->mBoneGlobalTransform.GetS()).Inverse();
-						curr_joint->mOffsetMatrix = curr_joint->mGlobalBindposeInverse * curr_joint->mBoneGlobalTransform;
+						//curr_joint->mOffsetMatrix = curr_joint->mGlobalBindposeInverse * curr_joint->mBoneGlobalTransform;
 
 						unsigned int loopCounter = 0;
 						curr_joint->mAnimationVector.reserve(animation_length);
@@ -309,6 +309,7 @@ namespace {
 							else
 							{
 								newSystemKeyFrame.mGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform * newSystemKeyFrame.mLocalTransform;
+								
 							}
 							
 							newSystemKeyFrame.mOffsetMatrix = (curr_joint->mGlobalBindposeInverse * newSystemKeyFrame.mGlobalTransform);
