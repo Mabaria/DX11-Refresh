@@ -4,6 +4,20 @@
 namespace {
 	static FbxManager* gpFbxSdkManager = nullptr;
 
+	DirectX::XMFLOAT4X4 ConvertFbxAMatrixToXMFLOAT4X4(FbxAMatrix &toConvert)
+	{
+		DirectX::XMFLOAT4X4 newMat;
+		// Convert FbxMatrix to XMFLOAT
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				newMat.m[i][j] = static_cast<float>(toConvert.Get(i, j));
+			}
+		}
+		return newMat;
+	}
+
 	FbxAMatrix GetGeometryTransformation(FbxNode* node)
 	{
 		if (!node) {
@@ -279,8 +293,10 @@ namespace {
 						else
 						{
 							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * curr_joint->mBoneLocalTransform;
+
 						}
 						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse();
+						//curr_joint->mGlobalBindposeInverse = FbxAMatrix();
 						//curr_joint->mGlobalBindposeInverse = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f, 1.0f), curr_joint->mBoneGlobalTransform.GetR(), curr_joint->mBoneGlobalTransform.GetS()).Inverse();
 						//curr_joint->mOffsetMatrix = curr_joint->mGlobalBindposeInverse * curr_joint->mBoneGlobalTransform;
 
@@ -295,7 +311,7 @@ namespace {
 
 							FbxLoader::KeyFrame newSystemKeyFrame;
 							newSystemKeyFrame.mFrameNum = i;
-							
+
 							rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(curr_time);
 							transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(curr_time);
 							FbxAMatrix quatTest1 = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), rot, FbxVector4(1.0f, 1.0f, 1.0f));
@@ -309,13 +325,22 @@ namespace {
 							else
 							{
 								newSystemKeyFrame.mGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform * newSystemKeyFrame.mLocalTransform;
+								//newSystemKeyFrame.mGlobalTransform = newSystemKeyFrame.mLocalTransform * skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform;
 								
 							}
 							
 							newSystemKeyFrame.mOffsetMatrix = (curr_joint->mGlobalBindposeInverse * newSystemKeyFrame.mGlobalTransform);
+							newSystemKeyFrame.mOffsetMatrix = (newSystemKeyFrame.mGlobalTransform * curr_joint->mGlobalBindposeInverse);
+
+
+							DirectX::XMFLOAT4X4 bindPoseInverseXM = ConvertFbxAMatrixToXMFLOAT4X4(curr_joint->mGlobalBindposeInverse);
+							DirectX::XMFLOAT4X4 keyframeGlobalTransformXM = ConvertFbxAMatrixToXMFLOAT4X4(newSystemKeyFrame.mGlobalTransform);
+							DirectX::XMMATRIX bindPoseInverseXMMatrix = DirectX::XMLoadFloat4x4(&bindPoseInverseXM);
+							DirectX::XMMATRIX keyframeGlobalTransformXMMatrix = DirectX::XMLoadFloat4x4(&keyframeGlobalTransformXM);
+							DirectX::XMMATRIX result = DirectX::XMMatrixMultiply(bindPoseInverseXMMatrix, keyframeGlobalTransformXMMatrix);
 							FbxVector4 offsetTranslation = newSystemKeyFrame.mOffsetMatrix.GetT();
 							// Convert to correct coordinate system (maybe?)
-							newSystemKeyFrame.mOffsetMatrix = FbxAMatrix(FbxVector4(-offsetTranslation[1], offsetTranslation[0], -offsetTranslation[2], offsetTranslation[3]), newSystemKeyFrame.mOffsetMatrix.GetR(), newSystemKeyFrame.mOffsetMatrix.GetS());
+							//newSystemKeyFrame.mOffsetMatrix = FbxAMatrix(FbxVector4(-offsetTranslation[1], offsetTranslation[0], -offsetTranslation[2], offsetTranslation[3]), newSystemKeyFrame.mOffsetMatrix.GetR(), newSystemKeyFrame.mOffsetMatrix.GetS());
 							newSystemKeyFrame.mOffsetMatrix = newSystemKeyFrame.mOffsetMatrix.Transpose();
 							curr_joint->mAnimationVector.push_back(newSystemKeyFrame);
 							loopCounter++;
