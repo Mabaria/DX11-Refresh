@@ -30,6 +30,7 @@ namespace {
 
 		throw std::exception("Skeleton information in FBX file is corrupted or invalid.");
 	}
+
 	// Traverse the tree of nodes depth-first and return the first mesh found
 	FbxMesh* FindMesh(FbxNode* currentNode)
 	{
@@ -399,17 +400,6 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 
 
 	FbxNode* p_fbx_root_node = p_fbx_scene->GetRootNode();
-	
-
-	//FbxAxisSystem scene_axis_system = p_fbx_scene->GetGlobalSettings().GetAxisSystem();
-	//FbxAxisSystem our_axis_system = FbxAxisSystem::eDirectX;
-	//if (scene_axis_system != our_axis_system)
-	//{
-	//	our_axis_system.ConvertScene(p_fbx_scene.get());
-	//}
-
-	// Useful for skeleton/bone structure
-	//DisplayHierarchy(p_fbx_scene);
 
 	if (p_fbx_root_node)
 	{
