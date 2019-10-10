@@ -17,6 +17,8 @@
 #include "MeshObject.h"
 #include <math.h>
 
+#define MAX_NUMBER_OF_BONES_IN_SHADER 63
+
 using namespace DirectX;
 
 template <class T> void SafeRelease(T** ppT)
@@ -51,7 +53,7 @@ struct VS_WVP_CONSTANT_BUFFER
 
 struct VS_BONE_CONSTANT_BUFFER
 {
-	DirectX::XMFLOAT4X4 mBoneTransforms[35];
+	DirectX::XMFLOAT4X4 mBoneTransforms[MAX_NUMBER_OF_BONES_IN_SHADER];
 };
 
 class Renderer

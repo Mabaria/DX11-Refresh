@@ -1,5 +1,5 @@
 static const int MAX_AFFECTING_BONES = 4;
-static const int MAX_BONE_MATRICES = 35;
+static const int MAX_BONE_MATRICES = 63;
 
 cbuffer wvp : register(b0)
 {
