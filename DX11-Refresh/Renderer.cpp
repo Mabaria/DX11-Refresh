@@ -5,6 +5,8 @@ float rotation = -0.0f;
 float lastscroll = 0.0f;
 int currentAnimFrame = 0;
 
+
+
 Renderer::Renderer()
 {
 	this->Init();
@@ -129,7 +131,7 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests ------ 
 	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(20.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -164,12 +166,9 @@ void Renderer::Frame()
 		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
 		for (auto j : this->skinSkeletons[0]->joints)
 		{
-			//this->skinSkeletons[0]->joints[iter].mAnimation = this->skinSkeletons[0]->joints[iter].mAnimation->mNext;
 			FbxAMatrix tempFbxMatrix;
-			tempFbxMatrix = (j.mGlobalBindposeInverse * j.mAnimation->mGlobalTransform);
-			tempFbxMatrix = j.mOffsetMatrix;
 			tempFbxMatrix = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
-			//tempFbxMatrix = FbxAMatrix();
+
 			XMFLOAT4X4 newMat;
 			// Convert FbxMatrix to XMFLOAT
 			for (int i = 0; i < 4; ++i)
@@ -183,7 +182,7 @@ void Renderer::Frame()
 			skinBoneMatrices[0][iter++] = newMat;
 		}
 		VS_BONE_CONSTANT_BUFFER vsConstData = {};
-		for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < 35; i++)
+		for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
 		{
 			vsConstData.mBoneTransforms[i] = temp[i];
 		}
@@ -207,7 +206,7 @@ void Renderer::Frame()
 	for (auto a : skinVertexBuffers)
 	{
 		VS_BONE_CONSTANT_BUFFER vsBoneData = {};
-		for (int i = 0; i < skinBoneMatrices[0].size() && i < 35; i++)
+		for (int i = 0; i < skinBoneMatrices[0].size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
 		{
 			vsBoneData.mBoneTransforms[i] = skinBoneMatrices[0][i];
 		}
@@ -466,7 +465,7 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 				}
 				skinBoneMatrices.push_back(temp);
 				VS_BONE_CONSTANT_BUFFER vsConstData = {};
-				for (int i = 0; i < skeleton->joints.size() && i < 35; i++)
+				for (int i = 0; i < skeleton->joints.size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
 				{
 					vsConstData.mBoneTransforms[i] = temp[i];
 				}
