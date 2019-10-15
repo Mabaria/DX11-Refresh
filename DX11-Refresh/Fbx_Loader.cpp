@@ -217,6 +217,9 @@ namespace {
 			// including it for safety because I don't know if blender does or not
 			FbxAMatrix geometry_transform = GetGeometryTransformation(inNode);
 			std::vector<std::vector<FbxLoader::IndexWeightPair>> temp(jointData->size(), std::vector<FbxLoader::IndexWeightPair>());
+
+			unsigned int animation_length = 0;
+
 			// Loop through deformers
 			// Deformer is basically a skeleton
 			// Most likely only one exists in the mesh
@@ -263,19 +266,19 @@ namespace {
 					if (curr_anim_stack)
 					{
 						// Get animation information
-						FbxLongLong animation_length;
 						std::string animation_name;
 						FbxString anim_stack_name = curr_anim_stack->GetName();
 						animation_name = anim_stack_name.Buffer();
 						FbxTakeInfo* take_info = inNode->GetScene()->GetTakeInfo(anim_stack_name);
 						FbxTime start = curr_anim_stack->GetLocalTimeSpan().GetStart();
 						FbxTime end = curr_anim_stack->GetLocalTimeSpan().GetStop();
-						animation_length = end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1;
+						animation_length = (unsigned int)(end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1);
 						
 						// Evaluate the baseline global transform for the joint at t = 0 and create the global bindpose inverse matrix
 						FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(0.0f);
 						FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(0.0f);
-						curr_joint->mBoneLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
+						FbxAMatrix bone_local_transform;
+						bone_local_transform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
 
 						//FbxVector4 bboxMin, bboxMax, bboxCenter;
 						//bool resultweg = inNode->GetScene()->ComputeBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
@@ -283,12 +286,12 @@ namespace {
 						
 						if (curr_joint_index == 0)
 						{
-							curr_joint->mBoneGlobalTransform = curr_joint->mBoneLocalTransform;
+							curr_joint->mBoneGlobalTransform = bone_local_transform;
 						}
 						else
 						{
 							// FbxAMatrix performs matrix multiplication in REVERSE order, M1 * M2 is multiplied with M2 from the left
-							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * curr_joint->mBoneLocalTransform;
+							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * bone_local_transform;
 
 						}
 						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f));
@@ -330,10 +333,22 @@ namespace {
 							current_keyframe.mOffsetMatrix = FbxAMatrixToXMFLOAT4X4(&(offset_matrix.Transpose()));
 							curr_joint->mAnimationVector.push_back(current_keyframe);
 							loopCounter++;
-						}			
+						}		
 					}
+
+
 				}
 			}
+			skeleton->jointCount = skeleton->joints.size();
+			skeleton->animationData = new DirectX::XMFLOAT4X4[skeleton->jointCount * animation_length];
+			for (int i = 0; i < skeleton->jointCount; ++i)
+			{
+				for (int j = 0, count = skeleton->joints[i].mAnimationVector.size(); j < count; ++j)
+				{
+					skeleton->animationData[j * skeleton->jointCount + i] = skeleton->joints[i].mAnimationVector[j].mOffsetMatrix;
+				}
+			}
+
 			// Check if any vertex has more than 4 weights assigned
 			for (unsigned int i = 0; i < temp.size(); ++i)
 			{

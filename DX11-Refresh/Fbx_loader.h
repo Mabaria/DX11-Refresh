@@ -44,8 +44,7 @@ struct KeyFrame {
 	FbxLongLong mFrameNum;
 	FbxAMatrix mGlobalTransform;	//global transform not including bindpose inverse transform matrix
 	FbxAMatrix mLocalTransform;
-	//FbxAMatrix mOffsetMatrix;		// final offset matrix, this is what needs to be sent to the GPU
-	DirectX::XMFLOAT4X4 mOffsetMatrix;
+	DirectX::XMFLOAT4X4 mOffsetMatrix; // final offset matrix, this is what needs to be sent to the GPU
 };
 
 struct Joint {
@@ -57,7 +56,6 @@ struct Joint {
 
 	FbxAMatrix mGlobalBindposeInverse;
 	FbxAMatrix mBoneGlobalTransform;
-	FbxAMatrix mBoneLocalTransform;
 	FbxAMatrix mOffsetMatrix;
 
 	Joint() :
@@ -69,6 +67,9 @@ struct Joint {
 
 struct Skeleton {
 	std::vector<Joint> joints;
+	DirectX::XMFLOAT4X4* animationData;
+	unsigned int jointCount;
+	unsigned int frameCount;
 };
 
 
