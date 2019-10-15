@@ -18,6 +18,20 @@ namespace {
 
 	}
 
+	DirectX::XMFLOAT4X4 FbxAMatrixToXMFLOAT4X4(FbxAMatrix* toConvert)
+	{
+		DirectX::XMFLOAT4X4 newMat;
+		// Convert FbxMatrix to XMFLOAT
+		for (int i = 0; i < 4; ++i)
+		{
+			for (int j = 0; j < 4; ++j)
+			{
+				newMat.m[i][j] = static_cast<float>(toConvert->Get(i, j));
+			}
+		}
+		return newMat;
+	}
+
 	unsigned int FindJointIndexUsingName(const std::string& inJointName, FbxLoader::Skeleton* skeleton)
 	{
 		for (unsigned int i = 0; i < skeleton->joints.size(); ++i)
@@ -205,7 +219,7 @@ namespace {
 			std::vector<std::vector<FbxLoader::IndexWeightPair>> temp(jointData->size(), std::vector<FbxLoader::IndexWeightPair>());
 			// Loop through deformers
 			// Deformer is basically a skeleton
-			// Most likely only on exists in the mesh
+			// Most likely only one exists in the mesh
 			for (unsigned int deformer_index = 0; deformer_index < num_deformers; ++deformer_index)
 			{
 				FbxSkin* curr_skin = static_cast<FbxSkin*>(curr_mesh->GetDeformer(deformer_index, FbxDeformer::eSkin));
@@ -214,6 +228,7 @@ namespace {
 				{
 					continue;
 				}
+
 				// Clusters contain links, which are basically joints
 				unsigned int num_of_clusters = curr_skin->GetClusterCount();
 				FbxNode* boneRootNode = curr_skin->GetCluster(0)->GetLink();
@@ -306,12 +321,13 @@ namespace {
 								// FbxAMatrix performs matrix multiplication in REVERSE order, M1 * M2 is multiplied with M2 from the left
 								current_keyframe.mGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mAnimationVector[loopCounter].mGlobalTransform * current_keyframe.mLocalTransform;
 							}
+							FbxAMatrix offset_matrix;
 							// FbxAMatrix performs matrix multiplication in REVERSE order, M1 * M2 is multiplied with M2 from the left
-							current_keyframe.mOffsetMatrix = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f)) * (current_keyframe.mGlobalTransform * curr_joint->mGlobalBindposeInverse);
+							offset_matrix = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f)) * (current_keyframe.mGlobalTransform * curr_joint->mGlobalBindposeInverse);
 
 
 							// Matrix needs to be transposed before sending to the GPU
-							current_keyframe.mOffsetMatrix = current_keyframe.mOffsetMatrix.Transpose();
+							current_keyframe.mOffsetMatrix = FbxAMatrixToXMFLOAT4X4(&(offset_matrix.Transpose()));
 							curr_joint->mAnimationVector.push_back(current_keyframe);
 							loopCounter++;
 						}			

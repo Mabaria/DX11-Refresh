@@ -39,14 +39,13 @@ struct ControlPointInfo
 	IndexWeightPair weightPairs[4];
 };
 
-
-
 //This stores the information of each key frame of each Joint
 struct KeyFrame {
 	FbxLongLong mFrameNum;
 	FbxAMatrix mGlobalTransform;	//global transform not including bindpose inverse transform matrix
 	FbxAMatrix mLocalTransform;
-	FbxAMatrix mOffsetMatrix;		// final offset matrix, this is what needs to be sent to the GPU
+	//FbxAMatrix mOffsetMatrix;		// final offset matrix, this is what needs to be sent to the GPU
+	DirectX::XMFLOAT4X4 mOffsetMatrix;
 };
 
 struct Joint {

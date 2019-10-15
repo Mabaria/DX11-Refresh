@@ -166,20 +166,8 @@ void Renderer::Frame()
 		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
 		for (auto j : this->skinSkeletons[0]->joints)
 		{
-			FbxAMatrix tempFbxMatrix;
-			tempFbxMatrix = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
-
-			XMFLOAT4X4 newMat;
-			// Convert FbxMatrix to XMFLOAT
-			for (int i = 0; i < 4; ++i)
-			{
-				for (int j = 0; j < 4; ++j)
-				{
-					newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
-				}
-			}
-			temp.push_back(newMat);
-			skinBoneMatrices[0][iter++] = newMat;
+			temp.push_back(j.mAnimationVector[currentAnimFrame].mOffsetMatrix);
+			skinBoneMatrices[0][iter++] = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
 		}
 		VS_BONE_CONSTANT_BUFFER vsConstData = {};
 		for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
@@ -439,29 +427,18 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 				hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
 				std::vector<XMFLOAT4X4> temp;
 				FbxAMatrix tempFbxMatrix;
-
+				int iter = 0;
 				for (auto a : skeleton->joints)
 				{
 					// I dont know what the fuck im doing
 					// tempFbxMatrix = a.mGlobalBindposeInverse.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), FbxVector4(1.0f, 1.0f, 1.0f)) * a.mGlobalBindposeInverse;
 					//tempFbxMatrix = a.mGlobalBindposeInverse * a.mAnimation->mGlobalTransform;
-					tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
+					//tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
 					//tempFbxMatrix = a.mAnimation->mGlobalTransform;
-					XMFLOAT4X4 newMat;
-					// Convert FbxMatrix to XMFLOAT
-					for (int i = 0; i < 4; ++i)
-					{
-						for (int j = 0; j < 4; ++j)
-						{
-								newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
-							
-						}
-					}
-					if (a.mName == std::string("Hand.l"))
-					{
-						//XMStoreFloat4x4(&newMat, XMMatrixRotationY(1.57079632679f));
-					}
-					temp.push_back(newMat);
+
+					//currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
+
+					temp.push_back(a.mAnimationVector[0].mOffsetMatrix);
 				}
 				skinBoneMatrices.push_back(temp);
 				VS_BONE_CONSTANT_BUFFER vsConstData = {};
