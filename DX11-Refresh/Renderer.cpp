@@ -161,28 +161,8 @@ void Renderer::Frame()
 
 	if (rotation > 0.01f || rotation < -0.01f)
 	{
-		//std::vector<XMFLOAT4X4> temp;
-		int iter = 0;
-		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
-		//for (auto j : this->skinSkeletons[0]->joints)
-		//{
-		//	temp.push_back(j.mAnimationVector[currentAnimFrame].mOffsetMatrix);
-		//	skinBoneMatrices[0][iter++] = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
-		//}
+		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
 		VS_BONE_CONSTANT_BUFFER vsConstData = {};
-		//for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
-		//{
-		//	vsConstData.mBoneTransforms[i] = temp[i];
-		//}
-
-		//this->mDeviceContext->UpdateSubresource(
-		//	this->mBoneTransformBuffer,
-		//	0,
-		//	NULL,
-		//	&vsConstData,
-		//	0,
-		//	0
-		//);
 
 		// ------------ NEW SYSTEM -----------------
 		DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
@@ -206,20 +186,7 @@ void Renderer::Frame()
 	iter = 0;
 	for (auto a : skinVertexBuffers)
 	{
-		//VS_BONE_CONSTANT_BUFFER vsBoneData = {};
-		//for (int i = 0; i < skinBoneMatrices[0].size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
-		//{
-		//	vsBoneData.mBoneTransforms[i] = skinBoneMatrices[0][i];
-		//}
-		//XMStoreFloat4x4(&vsBoneData.mBoneTransforms[9], XMMatrixRotationX(rotation));
-		//this->mDeviceContext->UpdateSubresource(
-		//	this->mBoneTransformBuffer,
-		//	0,
-		//	NULL,
-		//	&vsBoneData,
-		//	0,
-		//	0
-		//);
+
 		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &skinStride, &offset);
 		this->mDeviceContext->IASetIndexBuffer(skinIndexBuffers[iter], DXGI_FORMAT_R32_UINT, 0);
 		this->mDeviceContext->DrawIndexed(skinIndexCount[iter], 0, 0);

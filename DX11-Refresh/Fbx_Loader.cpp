@@ -340,12 +340,13 @@ namespace {
 				}
 			}
 			skeleton->jointCount = skeleton->joints.size();
+			skeleton->frameCount = animation_length;
 			skeleton->animationData = new DirectX::XMFLOAT4X4[skeleton->jointCount * animation_length];
 			for (int i = 0; i < skeleton->jointCount; ++i)
 			{
-				for (int j = 0, count = skeleton->joints[i].mAnimationVector.size(); j < count; ++j)
+				for (int j = 0; j < animation_length; ++j)
 				{
-					skeleton->animationData[j * skeleton->jointCount + i] = skeleton->joints[i].mAnimationVector[j].mOffsetMatrix;
+					skeleton->animationData[j * skeleton->jointCount + i] = (skeleton->joints[i].mAnimationVector[j].mOffsetMatrix);
 				}
 			}
 
