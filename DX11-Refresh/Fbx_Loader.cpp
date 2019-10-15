@@ -227,6 +227,7 @@ namespace {
 					FbxLoader::Joint* curr_joint = &skeleton->joints[curr_joint_index];
 					skeleton->joints[curr_joint_index].mNode = curr_cluster->GetLink();
 
+
 					// Get index weight pairs - https://www.gamedev.net/articles/programming/graphics/how-to-work-with-fbx-sdk-r3582
 					// https://github.com/Larry955/FbxParser/blob/master/FbxParser/FbxParser.cpp - Row 781 & 993
 
@@ -260,6 +261,11 @@ namespace {
 						FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(0.0f);
 						FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(0.0f);
 						curr_joint->mBoneLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
+
+						//FbxVector4 bboxMin, bboxMax, bboxCenter;
+						//bool resultweg = inNode->GetScene()->ComputeBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
+						//resultweg = curr_cluster->GetLink()->EvaluateGlobalBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
+						
 						if (curr_joint_index == 0)
 						{
 							curr_joint->mBoneGlobalTransform = curr_joint->mBoneLocalTransform;
@@ -431,11 +437,8 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				for (int j = 0; j < p_mesh->GetControlPointsCount(); ++j)
 				{
 					DirectX::XMFLOAT3 vertex_pos;
-					FbxVector4 fbx_vertex = conversion_transform.MultT(p_vertices[j]);
-					
-					vertex_pos.x = (float)p_vertices[j].mData[0];
-					vertex_pos.y = (float)p_vertices[j].mData[1];
-					vertex_pos.z = (float)p_vertices[j].mData[2];
+					FbxVector4 fbx_vertex = p_vertices[j];
+					fbx_vertex = conversion_transform.MultT(p_vertices[j]);
 					vertex_pos.x = (float)fbx_vertex.mData[0];
 					vertex_pos.y = (float)fbx_vertex.mData[1];
 					vertex_pos.z = (float)fbx_vertex.mData[2];
@@ -469,12 +472,20 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 						throw std::exception("Invalid Fbx Normal Reference");
 					}
 					DirectX::XMFLOAT3 vertex_normal;
+
+					// Transform the normals in the same manner as the vertices
+					normal = conversion_transform.MultT(normal);
 					normal.Normalize();
 					vertex_normal.x = (float)normal.mData[0];
 					vertex_normal.y = (float)normal.mData[1];
 					vertex_normal.z = (float)normal.mData[2];
 					pOutNormalVector->push_back(vertex_normal);
 
+				}
+				// Flip the winding order
+				for (unsigned int i = 0, count = pOutIndexVector->size(); i < count - 2; i += 3)
+				{
+					std::swap((*pOutIndexVector)[i], (*pOutIndexVector)[i + 2]);
 				}
 
 				if (pOutSkeleton->joints.size() > 0)
