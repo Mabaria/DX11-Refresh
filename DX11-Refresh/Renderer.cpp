@@ -161,31 +161,12 @@ void Renderer::Frame()
 
 	if (rotation > 0.01f || rotation < -0.01f)
 	{
-		std::vector<XMFLOAT4X4> temp;
-		int iter = 0;
-		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
-		for (auto j : this->skinSkeletons[0]->joints)
-		{
-			FbxAMatrix tempFbxMatrix;
-			tempFbxMatrix = j.mAnimationVector[currentAnimFrame].mOffsetMatrix;
-
-			XMFLOAT4X4 newMat;
-			// Convert FbxMatrix to XMFLOAT
-			for (int i = 0; i < 4; ++i)
-			{
-				for (int j = 0; j < 4; ++j)
-				{
-					newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
-				}
-			}
-			temp.push_back(newMat);
-			skinBoneMatrices[0][iter++] = newMat;
-		}
+		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
 		VS_BONE_CONSTANT_BUFFER vsConstData = {};
-		for (int i = 0; i < this->skinSkeletons[0]->joints.size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
-		{
-			vsConstData.mBoneTransforms[i] = temp[i];
-		}
+
+		// ------------ NEW SYSTEM -----------------
+		DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
+		memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
 
 		this->mDeviceContext->UpdateSubresource(
 			this->mBoneTransformBuffer,
@@ -205,20 +186,7 @@ void Renderer::Frame()
 	iter = 0;
 	for (auto a : skinVertexBuffers)
 	{
-		VS_BONE_CONSTANT_BUFFER vsBoneData = {};
-		for (int i = 0; i < skinBoneMatrices[0].size() && i < MAX_NUMBER_OF_BONES_IN_SHADER; i++)
-		{
-			vsBoneData.mBoneTransforms[i] = skinBoneMatrices[0][i];
-		}
-		//XMStoreFloat4x4(&vsBoneData.mBoneTransforms[9], XMMatrixRotationX(rotation));
-		this->mDeviceContext->UpdateSubresource(
-			this->mBoneTransformBuffer,
-			0,
-			NULL,
-			&vsBoneData,
-			0,
-			0
-		);
+
 		this->mDeviceContext->IASetVertexBuffers(0, 1, &a, &skinStride, &offset);
 		this->mDeviceContext->IASetIndexBuffer(skinIndexBuffers[iter], DXGI_FORMAT_R32_UINT, 0);
 		this->mDeviceContext->DrawIndexed(skinIndexCount[iter], 0, 0);
@@ -439,29 +407,18 @@ void Renderer::LoadMesh(std::string& filepath, bool fbx)
 				hr = this->mDevice->CreateBuffer(&ibd, &iinitData, &indBuf);
 				std::vector<XMFLOAT4X4> temp;
 				FbxAMatrix tempFbxMatrix;
-
+				int iter = 0;
 				for (auto a : skeleton->joints)
 				{
 					// I dont know what the fuck im doing
 					// tempFbxMatrix = a.mGlobalBindposeInverse.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(0.0f, 0.0f, 0.0f, 0.0f), FbxVector4(1.0f, 1.0f, 1.0f)) * a.mGlobalBindposeInverse;
 					//tempFbxMatrix = a.mGlobalBindposeInverse * a.mAnimation->mGlobalTransform;
-					tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
+					//tempFbxMatrix = a.mAnimationVector[0].mOffsetMatrix;
 					//tempFbxMatrix = a.mAnimation->mGlobalTransform;
-					XMFLOAT4X4 newMat;
-					// Convert FbxMatrix to XMFLOAT
-					for (int i = 0; i < 4; ++i)
-					{
-						for (int j = 0; j < 4; ++j)
-						{
-								newMat.m[i][j] = static_cast<float>(tempFbxMatrix.Get(i, j));
-							
-						}
-					}
-					if (a.mName == std::string("Hand.l"))
-					{
-						//XMStoreFloat4x4(&newMat, XMMatrixRotationY(1.57079632679f));
-					}
-					temp.push_back(newMat);
+
+					//currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->joints[0].mAnimationVector.size();
+
+					temp.push_back(a.mAnimationVector[0].mOffsetMatrix);
 				}
 				skinBoneMatrices.push_back(temp);
 				VS_BONE_CONSTANT_BUFFER vsConstData = {};
