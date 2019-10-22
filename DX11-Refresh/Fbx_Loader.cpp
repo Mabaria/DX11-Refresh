@@ -257,6 +257,7 @@ namespace {
 						curr_index_weight_pair.index = curr_joint_index;
 						curr_index_weight_pair.weight = curr_cluster->GetControlPointWeights()[i];
 						temp[curr_cluster->GetControlPointIndices()[i]].push_back(curr_index_weight_pair);
+						curr_joint->mConnectedVertexIndices.push_back(curr_joint_index);
 					}
 
 					FbxAnimStack* curr_anim_stack = FbxCast<FbxAnimStack>(inNode->GetScene()->GetSrcObject<FbxAnimStack>());
