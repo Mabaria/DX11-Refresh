@@ -259,15 +259,58 @@ namespace {
 						temp[curr_cluster->GetControlPointIndices()[i]].push_back(curr_index_weight_pair);
 						curr_joint->mConnectedVertexIndices.push_back(curr_joint_index);
 					}
-
+					int anim_stack_count = inNode->GetScene()->GetSrcObjectCount<FbxAnimStack>();
 					FbxAnimStack* curr_anim_stack = FbxCast<FbxAnimStack>(inNode->GetScene()->GetSrcObject<FbxAnimStack>());
 
 					// If file has animation, parse it
 					// Currently only gets the first animation available in the file
 					if (curr_anim_stack)
 					{
-						// Get animation information
 						std::string animation_name;
+						bool has_tpose = false;
+						for (int anim_stack_index = 0; anim_stack_index < anim_stack_count; ++anim_stack_index)
+						{
+							curr_anim_stack = FbxCast<FbxAnimStack>(inNode->GetScene()->GetSrcObject<FbxAnimStack>(anim_stack_index));
+							FbxString anim_stack_name = curr_anim_stack->GetName();
+							animation_name = anim_stack_name.Buffer();
+							if (animation_name.substr(animation_name.length() - 5) == std::string("TPOSE"))
+							{
+								// Evaluate the baseline global transform for the joint at t = 0 and create the global bindpose inverse matrix
+								FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(0.0f);
+								FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(0.0f);
+								FbxDouble3 rotInf = curr_cluster->GetLink()->LclRotation.EvaluateValue(FBXSDK_TIME_INFINITE);
+								FbxDouble3 translInf = curr_cluster->GetLink()->LclTranslation.EvaluateValue(FBXSDK_TIME_INFINITE);
+								FbxAMatrix bone_local_transform;
+								bone_local_transform = FbxAMatrix(translInf, rotInf, FbxVector4(1.0f, 1.0f, 1.0f));
+
+								//FbxVector4 bboxMin, bboxMax, bboxCenter;
+								//bool resultweg = inNode->GetScene()->ComputeBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
+								//resultweg = curr_cluster->GetLink()->EvaluateGlobalBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
+
+								if (curr_joint_index == 0)
+								{
+									curr_joint->mBoneGlobalTransform = bone_local_transform;
+								}
+								else
+								{
+									// FbxAMatrix performs matrix multiplication in REVERSE order, M1 * M2 is multiplied with M2 from the left
+									curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * bone_local_transform;
+
+								}
+								curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f));
+								has_tpose = true;
+								break;
+							}
+						}
+						if (!has_tpose)
+						{
+							throw std::exception("Animated mesh does not have a 1 frame tpose action named \"TPOSE\", please create this animation.");
+						}
+
+						curr_anim_stack = FbxCast<FbxAnimStack>(inNode->GetScene()->GetSrcObject<FbxAnimStack>(0));
+
+						// Get animation information
+						
 						FbxString anim_stack_name = curr_anim_stack->GetName();
 						animation_name = anim_stack_name.Buffer();
 						FbxTakeInfo* take_info = inNode->GetScene()->GetTakeInfo(anim_stack_name);
@@ -275,27 +318,7 @@ namespace {
 						FbxTime end = curr_anim_stack->GetLocalTimeSpan().GetStop();
 						animation_length = (unsigned int)(end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1);
 						
-						// Evaluate the baseline global transform for the joint at t = 0 and create the global bindpose inverse matrix
-						FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(0.0f);
-						FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(0.0f);
-						FbxAMatrix bone_local_transform;
-						bone_local_transform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
 
-						//FbxVector4 bboxMin, bboxMax, bboxCenter;
-						//bool resultweg = inNode->GetScene()->ComputeBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
-						//resultweg = curr_cluster->GetLink()->EvaluateGlobalBoundingBoxMinMaxCenter(bboxMin, bboxMax, bboxCenter, 0);
-						
-						if (curr_joint_index == 0)
-						{
-							curr_joint->mBoneGlobalTransform = bone_local_transform;
-						}
-						else
-						{
-							// FbxAMatrix performs matrix multiplication in REVERSE order, M1 * M2 is multiplied with M2 from the left
-							curr_joint->mBoneGlobalTransform = skeleton->joints[skeleton->joints[curr_joint_index].mParentIndex].mBoneGlobalTransform * bone_local_transform;
-
-						}
-						curr_joint->mGlobalBindposeInverse = curr_joint->mBoneGlobalTransform.Inverse() * FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f));
 
 						// Pre-reserve slots in the vector for the keyframes
 						curr_joint->mAnimationVector.reserve(animation_length);
@@ -311,8 +334,8 @@ namespace {
 							current_keyframe.mFrameNum = i;
 
 							// Evaluate the local transform of the joint at the current time
-							rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(curr_time);
-							transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(curr_time);
+							FbxDouble3 rot = curr_cluster->GetLink()->LclRotation.EvaluateValue(curr_time);
+							FbxDouble3 transl = curr_cluster->GetLink()->LclTranslation.EvaluateValue(curr_time);
 							current_keyframe.mLocalTransform = FbxAMatrix(transl, rot, FbxVector4(1.0f, 1.0f, 1.0f));
 							// If joint is root, use local transform as global
 							// else, multiply with parent global first
