@@ -54,6 +54,8 @@ struct Joint {
 	std::vector<KeyFrame> mAnimationVector;
 	FbxNode* mNode;
 
+	std::vector<unsigned int> mConnectedVertexIndices;
+
 	FbxAMatrix mGlobalBindposeInverse;
 	FbxAMatrix mBoneGlobalTransform;
 	FbxAMatrix mOffsetMatrix;
