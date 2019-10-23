@@ -50,6 +50,6 @@ VSOut SKIN_VS(SKIN_VSIn input)
 	output.UV = input.UV;
 	output.Color = float4(input.Normal, 1.0f);
 	// Used for normal testing purposes to assign colour in the pixel shader
-	output.worldPos = float3(v.xyz);
+	output.worldPos = norm;
 	return output;
 }

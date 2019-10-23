@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <DirectXMath.h>
 #include <memory>
+#include <algorithm>
 
 #define MAX_NUM_WEIGHTS_PER_VERTEX 4
 
@@ -67,11 +68,34 @@ struct Joint {
 	}
 };
 
+enum ANIMATION_TYPE
+{
+	IDLE,
+	MOVE,
+	ATTACK,
+	ANIMATION_COUNT
+};
+
+struct AnimationSet
+{
+	DirectX::XMFLOAT4X4* animationData;
+	unsigned int frameCount;
+
+};
+
 struct Skeleton {
 	std::vector<Joint> joints;
 	DirectX::XMFLOAT4X4* animationData;
 	unsigned int jointCount;
 	unsigned int frameCount;
+
+	AnimationSet animations[ANIMATION_COUNT];
+	int animationFlags[ANIMATION_COUNT];
+	Skeleton()
+	{
+		// Initialize the animation flags with -1 for missing animation
+		std::fill(animationFlags, animationFlags + ANIMATION_COUNT, -1);
+	}
 };
 
 

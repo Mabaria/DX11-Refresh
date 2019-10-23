@@ -489,9 +489,10 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 				::LoadUV(p_mesh, pOutUVVector);
 				// Transform the mesh using the appropriate root transformation matrix
 
-				FbxAMatrix conversion_transform = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f));
+				
 				for (int j = 0; j < p_mesh->GetControlPointsCount(); ++j)
 				{
+					FbxAMatrix conversion_transform = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(1.0f, -1.0f, 1.0f));
 					DirectX::XMFLOAT3 vertex_pos;
 					FbxVector4 fbx_vertex = p_vertices[j];
 					fbx_vertex = conversion_transform.MultT(p_vertices[j]);
@@ -528,7 +529,7 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 						throw std::exception("Invalid Fbx Normal Reference");
 					}
 					DirectX::XMFLOAT3 vertex_normal;
-
+					conversion_transform = FbxAMatrix(FbxVector4(0.0f, 0.0f, 0.0f), FbxVector4(-90.0f, 0.0f, 0.0f), FbxVector4(-1.0f, 1.0f, -1.0f));
 					// Transform the normals in the same manner as the vertices
 					normal = conversion_transform.MultT(normal);
 					normal.Normalize();
