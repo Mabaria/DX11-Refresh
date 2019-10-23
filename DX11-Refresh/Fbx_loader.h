@@ -85,13 +85,15 @@ struct AnimationSet
 
 struct Skeleton {
 	std::vector<Joint> joints;
-	DirectX::XMFLOAT4X4* animationData;
-	unsigned int jointCount;
-	unsigned int frameCount;
+	DirectX::XMFLOAT4X4* animationData; // Legacy, to be removed
+	unsigned int jointCount = 0;
+	unsigned int frameCount = 0; // Legacy, to be removed
 
 	AnimationSet animations[ANIMATION_COUNT];
-	int animationFlags[ANIMATION_COUNT];
-	Skeleton()
+	int animationFlags[ANIMATION_COUNT]; // -1 : missing animation
+										 // 0  : disabled
+										 // 1  : enabled
+	Skeleton() 
 	{
 		// Initialize the animation flags with -1 for missing animation
 		std::fill(animationFlags, animationFlags + ANIMATION_COUNT, -1);

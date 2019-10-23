@@ -51,10 +51,12 @@ Renderer::~Renderer()
 	DSLessEqual->Release();
 	RSCullNone->Release();
 }
-
+static int timeLastFrame = 0;
+static bool animate = false;
 void Renderer::Frame()
 {
 	this->gameTimer.Tick();
+	float timeThisFrame = this->gameTimer.GameTime();
 	this->HandleInput();
 
 
@@ -161,24 +163,35 @@ void Renderer::Frame()
 
 	if (rotation > 0.01f || rotation < -0.01f)
 	{
-		currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
-		VS_BONE_CONSTANT_BUFFER vsConstData = {};
 
-		// ------------ NEW SYSTEM -----------------
-		DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
-		memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
 
-		this->mDeviceContext->UpdateSubresource(
-			this->mBoneTransformBuffer,
-			0,
-			NULL,
-			&vsConstData,
-			0,
-			0
-		);
-		
-		rotation = 0.0f;
+		animate = true;
 	}
+	if (animate)
+	{
+		if (timeThisFrame - timeLastFrame > 0.04166666666f)
+		{
+			currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
+			VS_BONE_CONSTANT_BUFFER vsConstData = {};
+
+			// ------------ NEW SYSTEM -----------------
+			DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
+			memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
+
+			this->mDeviceContext->UpdateSubresource(
+				this->mBoneTransformBuffer,
+				0,
+				NULL,
+				&vsConstData,
+				0,
+				0
+			);
+
+			rotation = 0.0f;
+			timeLastFrame = timeThisFrame;
+		}
+	}
+
 	this->mDeviceContext->IASetInputLayout(mSkinInputLayout);
 	this->mDeviceContext->VSSetShader(this->mSkinVertexShader, NULL, 0);
 	this->mDeviceContext->VSSetConstantBuffers(1, 1, &this->mBoneTransformBuffer);
