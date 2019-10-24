@@ -86,11 +86,15 @@ struct AnimationSet
 };
 
 struct Skeleton {
-	std::vector<Joint> joints;
-	DirectX::XMFLOAT4X4* animationData; // Legacy, to be removed
-	unsigned int jointCount = 0;
-	unsigned int frameCount = 0; // Legacy, to be removed
+private:  
+	float mCurrentTime = 0;
 
+public:
+	std::vector<Joint> joints;
+	DirectX::XMFLOAT4X4* animationData; // LEGACY, please use UpdateAnimation and frameData instead
+	DirectX::XMFLOAT4X4* frameData;
+	unsigned int jointCount = 0;
+	unsigned int frameCount = 0;
 	AnimationSet animations[ANIMATION_COUNT];
 	int animationFlags[ANIMATION_COUNT]; // -1 : missing animation
 										 // 0  : disabled
@@ -100,15 +104,21 @@ struct Skeleton {
 		// Initialize the animation flags with -1 for missing animation
 		std::fill(animationFlags, animationFlags + ANIMATION_COUNT, -1);
 	}
-	// Currently does not utilize dt nor blends animations, simply updates the global animationData with info from the first enabled animation.
-	void UpdateAnimation(float dt)
+	// Currently does not blend animations, simply updates the global animationData with info from the first enabled animation.
+	void UpdateAnimation(float dtInSeconds)
 	{
+
 		for (int i = 0; i < ANIMATION_COUNT; ++i)
 		{
 			if (this->animationFlags[i] == 1)
 			{
 				this->animationData = animations[i].animationData;
 				this->frameCount = animations[i].frameCount;
+				this->mCurrentTime = this->mCurrentTime + dtInSeconds;
+				int frame_to_set = (int)std::round(fmod(this->mCurrentTime * 24.0f, this->frameCount)) % this->frameCount;
+				// Get frame data from animationData vector
+				memcpy(this->frameData, &animations[i].animationData[frame_to_set * this->jointCount], this->jointCount * sizeof(DirectX::XMFLOAT4X4));
+				break; // This break will disappear when animation blending is implemented
 			}
 		}
 	}

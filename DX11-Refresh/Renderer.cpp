@@ -178,16 +178,17 @@ void Renderer::Frame()
 	}
 	if (animate)
 	{
-		if (rotation > 0.01f || rotation < -0.01f)
+		if (true)
 		{
-			this->skinSkeletons[0]->UpdateAnimation(0.0f);
+			this->skinSkeletons[0]->UpdateAnimation(this->gameTimer.DeltaTime());
 			currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
 			VS_BONE_CONSTANT_BUFFER vsConstData = {};
 
 			// ------------ NEW SYSTEM -----------------
 
 			DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
-			memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
+			//memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
+			memcpy(&vsConstData.mBoneTransforms[0], this->skinSkeletons[0]->frameData, this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
 
 			this->mDeviceContext->UpdateSubresource(
 				this->mBoneTransformBuffer,
