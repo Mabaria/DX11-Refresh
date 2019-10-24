@@ -288,7 +288,7 @@ namespace {
 					if (ending == std::string("TPOSE"))
 					{
 						has_tpose = true;
-						for (int cluster_index = 0; cluster_index < num_of_clusters; ++cluster_index)
+						for (unsigned int cluster_index = 0; cluster_index < num_of_clusters; ++cluster_index)
 						{
 							// Collect info about the current joint
 							FbxCluster* curr_cluster = curr_skin->GetCluster(cluster_index);
@@ -347,18 +347,13 @@ namespace {
 
 					// Create the AnimationSet for this animation
 					FbxLoader::AnimationSet tempAnimSet;
-					tempAnimSet.frameCount = animation_length;
+					tempAnimSet.frameCount = (unsigned int)animation_length;
 					tempAnimSet.animationName = animation_name;
 
 					std::vector<DirectX::XMFLOAT4X4> tempJointOffsetMatrixVector;
 
-					FbxAnimEvaluator* anim_eval = inNode->GetScene()->GetAnimationEvaluator();
-					FbxNodeEvalState* evalstate;
-					
-					
-
 					// bindposes have already been calculated at this point, we just need the offset matrices for each joint
-					for (int cluster_index = 0; cluster_index < num_of_clusters; ++cluster_index)
+					for (unsigned int cluster_index = 0; cluster_index < num_of_clusters; ++cluster_index)
 					{
 						// Collect info about the current joint
 						FbxCluster* curr_cluster = curr_skin->GetCluster(cluster_index);
@@ -411,9 +406,9 @@ namespace {
 
 					// Fill the Animation Set with the collected data
 					tempAnimSet.animationData = new DirectX::XMFLOAT4X4[animation_length * num_of_clusters];
-					for (int frame_index = 0; frame_index < animation_length; ++frame_index)
+					for (unsigned int frame_index = 0; frame_index < (unsigned int)animation_length; ++frame_index)
 					{
-						for (int joint_index = 0; joint_index < num_of_clusters; ++joint_index)
+						for (unsigned int joint_index = 0; joint_index < num_of_clusters; ++joint_index)
 						{
 							tempAnimSet.animationData[frame_index * num_of_clusters + joint_index] = tempJointOffsetMatrixVector[joint_index * animation_length + frame_index];
 						}
@@ -427,7 +422,7 @@ namespace {
 					skeleton->animationFlags[i] = 0;
 				}
 			}
-			skeleton->jointCount = skeleton->joints.size();
+			skeleton->jointCount = (unsigned int)skeleton->joints.size();
 			skeleton->frameData = new DirectX::XMFLOAT4X4[skeleton->jointCount];
 			// Check if any vertex has more than 4 weights assigned
 			for (unsigned int i = 0; i < temp.size(); ++i)
@@ -445,8 +440,6 @@ namespace {
 			CheckSumOfWeights(jointData);
 		}
 	}
-
-
 }
 
 
@@ -476,11 +469,6 @@ HRESULT FbxLoader::LoadFBX(const std::string& fileName, std::vector<DirectX::XMF
 	// Import model
 	bool b_success = p_importer->Initialize(fileName.c_str(), -1, gpFbxSdkManager->GetIOSettings());
 
-	//FbxAxisSystem direct_x_axis_system(FbxAxisSystem::eDirectX);
-	//if (p_fbx_scene.get()->GetGlobalSettings().GetAxisSystem() != direct_x_axis_system)
-	//{
-	//	direct_x_axis_system.ConvertScene(p_fbx_scene.get());
-	//}
 	// Handle failed import
 	if (!b_success)
 	{
