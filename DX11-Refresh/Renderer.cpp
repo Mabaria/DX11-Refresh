@@ -163,18 +163,29 @@ void Renderer::Frame()
 
 	if (rotation > 0.01f || rotation < -0.01f)
 	{
-
-
 		animate = true;
+		
+		if (rotation > 0.01f)
+		{
+			this->skinSkeletons[0]->StartAnimation(FbxLoader::ANIMATION_TYPE::IDLE);
+			this->skinSkeletons[0]->StopAnimation(FbxLoader::ANIMATION_TYPE::MOVE);
+		}
+		else if (rotation < 0.01f)
+		{
+			this->skinSkeletons[0]->StartAnimation(FbxLoader::ANIMATION_TYPE::MOVE);
+			this->skinSkeletons[0]->StopAnimation(FbxLoader::ANIMATION_TYPE::IDLE);
+		}
 	}
 	if (animate)
 	{
-		if (timeThisFrame - timeLastFrame > 0.04166666666f)
+		if (rotation > 0.01f || rotation < -0.01f)
 		{
+			this->skinSkeletons[0]->UpdateAnimation(0.0f);
 			currentAnimFrame = (currentAnimFrame + 1) % this->skinSkeletons[0]->frameCount;
 			VS_BONE_CONSTANT_BUFFER vsConstData = {};
 
 			// ------------ NEW SYSTEM -----------------
+
 			DirectX::XMFLOAT4X4* anim_data = this->skinSkeletons[0]->animationData;
 			memcpy(&vsConstData.mBoneTransforms[0], &anim_data[currentAnimFrame * this->skinSkeletons[0]->jointCount], this->skinSkeletons[0]->jointCount * sizeof(XMFLOAT4X4));
 

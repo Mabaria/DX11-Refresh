@@ -9,6 +9,7 @@
 #include <DirectXMath.h>
 #include <memory>
 #include <algorithm>
+#include <locale>
 
 #define MAX_NUM_WEIGHTS_PER_VERTEX 4
 
@@ -80,7 +81,8 @@ struct AnimationSet
 {
 	DirectX::XMFLOAT4X4* animationData;
 	unsigned int frameCount;
-
+	unsigned int activeFrame = 0;
+	std::string animationName;
 };
 
 struct Skeleton {
@@ -97,6 +99,45 @@ struct Skeleton {
 	{
 		// Initialize the animation flags with -1 for missing animation
 		std::fill(animationFlags, animationFlags + ANIMATION_COUNT, -1);
+	}
+	// Currently does not utilize dt nor blends animations, simply updates the global animationData with info from the first enabled animation.
+	void UpdateAnimation(float dt)
+	{
+		for (int i = 0; i < ANIMATION_COUNT; ++i)
+		{
+			if (this->animationFlags[i] == 1)
+			{
+				this->animationData = animations[i].animationData;
+				this->frameCount = animations[i].frameCount;
+			}
+		}
+	}
+	// Returns false if requested animation does not exist
+	bool StartAnimation(ANIMATION_TYPE anim_type)
+	{
+		if (anim_type < ANIMATION_COUNT)
+		{
+			if (this->animationFlags[anim_type] != -1)
+			{
+				this->animationFlags[anim_type] = 1;
+				this->animations[anim_type].activeFrame = 0;
+				return true;
+			}
+		}
+		return false;
+	}
+	// Returns false if requested animation does not exist
+	bool StopAnimation(ANIMATION_TYPE anim_type)
+	{
+		if (anim_type < ANIMATION_COUNT)
+		{
+			if (this->animationFlags[anim_type] != -1)
+			{
+				this->animationFlags[anim_type] = 0;
+				return true;
+			}
+		}
+		return false;
 	}
 };
 
