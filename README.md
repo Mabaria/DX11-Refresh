@@ -2,7 +2,13 @@
 
 ## Current features:
 
+_Loading and displaying skinned mesh animation from .FBX_
 
+![Animated mesh displaying running and idle animations.](https://thumbs.gfycat.com/OddballKeenArmedcrab-small.gif)
+
+
+
+_________
 _Model loading through item dialog box_
 
 ![Model loading through item dialog box](https://thumbs.gfycat.com/FatalLividAidi-small.gif)
