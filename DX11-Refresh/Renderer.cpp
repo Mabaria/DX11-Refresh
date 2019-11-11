@@ -15,6 +15,7 @@ Renderer::Renderer()
 	this->CreateVertexBuffers();
 	this->CreateSamplerState();
 	this->CreateCubeMap();
+	this->CreateDepthStencils();
 	this->CreateFloorTexture();
 	this->CreateSphere(10, 10);
 
@@ -86,6 +87,22 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
 	this->mDeviceContext->IASetInputLayout(mDefaultInputLayout);
+
+	// ----- Render cube
+	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
+	this->mDeviceContext->RSSetState(this->mRasterState);
+
+	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
+	this->mDeviceContext->IASetIndexBuffer(this->mCubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	// Set the WVP buffer.
+	this->updateWVP(this->gameTimer.DeltaTime());
+	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
+	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
+
+
+	this->mDeviceContext->DrawIndexed(36, 0, 0);
+
 	// ----- Render sphere
 	this->mDeviceContext->IASetIndexBuffer(this->sphereIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->sphereVertBuffer, &stride, &offset);
@@ -112,28 +129,15 @@ void Renderer::Frame()
 	this->mDeviceContext->RSSetState(RSCullNone);
 	this->mDeviceContext->DrawIndexed(NumSphereFaces * 3, 0, 0);
 
+	this->mDeviceContext->OMSetDepthStencilState(NULL, 0);
 
-	// ----- Render cube
-	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
-	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
-	this->mDeviceContext->RSSetState(this->mRasterState);
-
-	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
-	this->mDeviceContext->IASetIndexBuffer(this->mCubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-	// Set the WVP buffer.
-	this->updateWVP(this->gameTimer.DeltaTime());
-	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
-	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
-
-
-	this->mDeviceContext->DrawIndexed(36, 0, 0);
 
 	
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests ------ 
 	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 10.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -635,7 +639,7 @@ bool Renderer::Init()
 	vp.Width	= static_cast<float>(activeWindowRect.right - activeWindowRect.left);
 	vp.Height	= static_cast<float>(activeWindowRect.bottom - activeWindowRect.top);
 	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
 
 	this->mDeviceContext->RSSetViewports(1, &vp);
 
@@ -1088,6 +1092,14 @@ bool Renderer::CreateCubeMap()
 		return false;
 	}
 
+
+
+	return true;
+}
+
+bool Renderer::CreateDepthStencils()
+{
+	HRESULT hr;
 	D3D11_DEPTH_STENCIL_DESC dssDesc;
 	ZeroMemory(&dssDesc, sizeof(D3D11_DEPTH_STENCIL_DESC));
 	dssDesc.DepthEnable = true;
@@ -1097,10 +1109,57 @@ bool Renderer::CreateCubeMap()
 	hr = this->mDevice->CreateDepthStencilState(&dssDesc, &DSLessEqual);
 	if (FAILED(hr))
 	{
-		MessageBox(0, L"CreateDepthStencilState for Skybox failed", 0, 0);
+		MessageBox(0, L"CreateDepthStencilState for DSLessEqual (Skybox) failed", 0, 0);
 		return false;
 	}
 
+	// Create depth-stencil buffer using a texture resource
+	ID3D11Texture2D* pDepthStencil = NULL;
+	D3D11_TEXTURE2D_DESC descDepth;
+	D3D11_TEXTURE2D_DESC backBufferSurfaceDesc;
+	this->mBackBuffer->GetDesc(&backBufferSurfaceDesc);
+	
+	descDepth.Width = backBufferSurfaceDesc.Width;
+	descDepth.Height = backBufferSurfaceDesc.Height;
+	descDepth.MipLevels = 1;
+	descDepth.ArraySize = 1;
+	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Usage = D3D11_USAGE_DEFAULT;
+	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	descDepth.CPUAccessFlags = 0;
+	descDepth.MiscFlags = 0;
+	hr = this->mDevice->CreateTexture2D(&descDepth, NULL, &pDepthStencil);
+
+	// Create depth-stencil state
+
+	D3D11_DEPTH_STENCIL_DESC dsDesc;
+
+	// Depth test parameters
+	dsDesc.DepthEnable = true;
+	dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
+	// Stencil test parameters
+	dsDesc.StencilEnable = true;
+	dsDesc.StencilReadMask = 0xFF;
+	dsDesc.StencilWriteMask = 0xFF;
+
+	// Stencil operations if pixel is front-facing
+	dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+	dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+	// Stencil operations if pixel is back-facing
+	dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+	dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+	// Create depth stencil state
+	this->mDevice->CreateDepthStencilState(&dsDesc, &DSDefault);
 	return true;
 }
 

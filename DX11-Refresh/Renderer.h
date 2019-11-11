@@ -85,6 +85,7 @@ private:
 	ID3D11SamplerState* skyboxSamplerState;
 	ID3D11ShaderResourceView* smrv;
 
+	ID3D11DepthStencilState* DSDefault;
 	ID3D11DepthStencilState* DSLessEqual;
 	ID3D11RasterizerState* RSCullNone;
 
@@ -147,6 +148,7 @@ private:
 	bool CreateConstantBuffers();
 	bool CreateSamplerState();
 	bool CreateCubeMap();
+	bool CreateDepthStencils();
 	bool CreateFloorTexture();
 	void CreateSphere(int LatLines, int LongLines);
 
