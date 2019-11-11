@@ -32,7 +32,7 @@ Renderer::~Renderer()
 	SafeRelease(&this->mCubeIndexBuffer);
 	SafeRelease(&this->mCubeVertexBuffer);
 	SafeRelease(&this->mCubeVertexShader);
-	SafeRelease(&this->mCubePixelShader);
+	SafeRelease(&this->mTexturePixelShader);
 	SafeRelease(&this->mRenderTargetView);
 	SafeRelease(&this->mDepthStencilBuffer);
 	SafeRelease(&this->mDepthStencilView);
@@ -90,7 +90,7 @@ void Renderer::Frame()
 
 	// ----- Render cube
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
-	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mTexturePixelShader, NULL, 0);
 	this->mDeviceContext->RSSetState(this->mRasterState);
 
 	this->mDeviceContext->IASetVertexBuffers(0, 1, &this->mCubeVertexBuffer, &stride, &offset);
@@ -136,8 +136,7 @@ void Renderer::Frame()
 
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// ------ Render tests ------ 
-	
-	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 10.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
+	WVP = XMMatrixScaling(scale, scale, scale) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 7.0f, 0.0f) * this->mCamera->GetViewMatrix() * this->mCamera->GetProjectionMatrix();
 	WVP = XMMatrixTranspose(WVP);
 	DirectX::XMStoreFloat4x4(&vsConstData.mWorldViewProj, WVP);
 	this->mDeviceContext->UpdateSubresource(
@@ -149,7 +148,7 @@ void Renderer::Frame()
 		0
 	);
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
-	this->mDeviceContext->PSSetShader(this->mCubePixelShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mDefaultPixelShader, NULL, 0);
 	this->mDeviceContext->RSSetState(this->mRasterState);
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
@@ -867,10 +866,10 @@ bool Renderer::CreateShadersAndInputLayout()
 	);
 
 
-	// Compile pixel shader
+	// Compile texture pixel shader
 	ID3DBlob* ps_blob = nullptr;
 	hr = D3DCompileFromFile(
-		L"PixelShader.hlsl",
+		L"TexturePS.hlsl",
 		nullptr,
 		nullptr,
 		"PS",
@@ -883,7 +882,7 @@ bool Renderer::CreateShadersAndInputLayout()
 
 	if (FAILED(hr))
 	{
-		MessageBox(0, L"D3DCompileFromFile Compiling Pixel Shader failed", 0, 0);
+		MessageBox(0, L"D3DCompileFromFile Compiling Texture Pixel Shader failed", 0, 0);
 		return false;
 	}
 	// Create Pixel shader
@@ -891,11 +890,43 @@ bool Renderer::CreateShadersAndInputLayout()
 		ps_blob->GetBufferPointer(),
 		ps_blob->GetBufferSize(),
 		nullptr,
-		&mCubePixelShader
+		&mTexturePixelShader
 	);
 	if (FAILED(hr))
 	{
-		MessageBox(0, L"CreatePixelShader failed", 0, 0);
+		MessageBox(0, L"CreatePixelShader for TexturePS failed", 0, 0);
+		return false;
+	}
+
+	// Compile default pixel shader
+	ps_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"DefaultPS.hlsl",
+		nullptr,
+		nullptr,
+		"PS",
+		"ps_5_0",
+		0,
+		0,
+		&ps_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Default Pixel Shader failed", 0, 0);
+		return false;
+	}
+	// Create Pixel shader
+	hr = this->mDevice->CreatePixelShader(
+		ps_blob->GetBufferPointer(),
+		ps_blob->GetBufferSize(),
+		nullptr,
+		&mDefaultPixelShader
+	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreatePixelShader for DefaultPS failed", 0, 0);
 		return false;
 	}
 

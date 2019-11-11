@@ -86,9 +86,6 @@
     <FxCompile Include="VertexShader.hlsl">
       <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
-    <FxCompile Include="PixelShader.hlsl">
-      <Filter>Source Files\Shader Files</Filter>
-    </FxCompile>
     <FxCompile Include="SkyboxVS.hlsl">
       <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
@@ -96,6 +93,12 @@
       <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
     <FxCompile Include="SkinningVS.hlsl">
+      <Filter>Source Files\Shader Files</Filter>
+    </FxCompile>
+    <FxCompile Include="TexturePS.hlsl">
+      <Filter>Source Files\Shader Files</Filter>
+    </FxCompile>
+    <FxCompile Include="DefaultPS.hlsl">
       <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
   </ItemGroup>
