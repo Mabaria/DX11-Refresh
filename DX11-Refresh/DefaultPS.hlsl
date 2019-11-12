@@ -22,9 +22,9 @@ SamplerState MeshTextureSampler
 PSOut PS(VSOut input) : SV_Target
 {
 	PSOut output;
-	//output.Color = input.Color;
-	//output.Color = ObjTexture.Sample(MeshTextureSampler, input.UV);
-	output.Color = float4(input.worldPos, 1.0f);
+//output.Color = input.Color;
+//output.Color = ObjTexture.Sample(MeshTextureSampler, input.UV);
+output.Color = float4(input.Color.x, input.Color.x, input.Color.x, 1.0f);
 
-	return output;
+return output;
 }
