@@ -101,6 +101,12 @@
     <FxCompile Include="DefaultPS.hlsl">
       <Filter>Source Files\Shader Files</Filter>
     </FxCompile>
+    <FxCompile Include="OutlinePS.hlsl">
+      <Filter>Source Files\Shader Files</Filter>
+    </FxCompile>
+    <FxCompile Include="OutlineVS.hlsl">
+      <Filter>Source Files\Shader Files</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

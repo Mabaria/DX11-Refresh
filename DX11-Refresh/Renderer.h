@@ -87,7 +87,9 @@ private:
 
 	ID3D11DepthStencilState* DSDefault;
 	ID3D11DepthStencilState* DSLessEqual;
+	ID3D11DepthStencilState* DSOutline;
 	ID3D11RasterizerState* RSCullNone;
+	ID3D11RasterizerState* RSWireframe;
 
 	int NumSphereVertices;
 	int NumSphereFaces;
@@ -112,12 +114,17 @@ private:
 	ID3D11Buffer* mCubeVertexBuffer = nullptr;
 	ID3D11Buffer* mCubeIndexBuffer = nullptr;
 	ID3D11VertexShader* mCubeVertexShader = nullptr;
+	ID3D11VertexShader* mOutlineVertexShader = nullptr;
 	ID3D11PixelShader* mTexturePixelShader = nullptr;
+	ID3D11PixelShader* mOutlinePixelShader = nullptr;
 	ID3D11PixelShader* mDefaultPixelShader = nullptr;
 	DirectX::XMFLOAT4X4 mCubeWorld;
 	//DirectX::XMFLOAT4X4 mView;
 	DirectX::XMFLOAT4X4 mProjection;
 	ID3D11ShaderResourceView* mCubeTexSRV;
+	ID3D11ShaderResourceView* mOutlineStencilSRV;
+
+	ID3D11BlendState* mDefaultBlendState = nullptr;
 
 	float mAspectRatio = 0.0f;
 
@@ -150,6 +157,9 @@ private:
 	bool CreateSamplerState();
 	bool CreateCubeMap();
 	bool CreateDepthStencils();
+	bool CreateShaderResourceViews();
+	bool CreateRasterizerStates();
+	bool CreateBlendStates();
 	bool CreateFloorTexture();
 	void CreateSphere(int LatLines, int LongLines);
 

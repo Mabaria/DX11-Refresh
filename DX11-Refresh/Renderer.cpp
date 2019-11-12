@@ -16,6 +16,9 @@ Renderer::Renderer()
 	this->CreateSamplerState();
 	this->CreateCubeMap();
 	this->CreateDepthStencils();
+	this->CreateRasterizerStates();
+	this->CreateBlendStates();
+	this->CreateShaderResourceViews();
 	this->CreateFloorTexture();
 	this->CreateSphere(10, 10);
 
@@ -87,6 +90,8 @@ void Renderer::Frame()
 	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, this->mDepthStencilView);
 	this->mDeviceContext->IASetInputLayout(mDefaultInputLayout);
+	this->mDeviceContext->OMSetBlendState(NULL, NULL, 0xffffffff);
+	this->mDeviceContext->OMSetDepthStencilState(this->DSDefault, 0);
 
 	// ----- Render cube
 	this->mDeviceContext->VSSetShader(this->mCubeVertexShader, NULL, 0);
@@ -98,6 +103,7 @@ void Renderer::Frame()
 	// Set the WVP buffer.
 	this->updateWVP(this->gameTimer.DeltaTime());
 	this->mDeviceContext->PSSetShaderResources(0, 1, &mCubeTexSRV);
+	this->mDeviceContext->PSSetSamplers(0, 1, &skyboxSamplerState);
 	this->mDeviceContext->VSSetConstantBuffers(0, 1, &this->mWVPBuffer);
 
 
@@ -129,7 +135,7 @@ void Renderer::Frame()
 	this->mDeviceContext->RSSetState(RSCullNone);
 	this->mDeviceContext->DrawIndexed(NumSphereFaces * 3, 0, 0);
 
-	this->mDeviceContext->OMSetDepthStencilState(NULL, 0);
+	this->mDeviceContext->OMSetDepthStencilState(this->DSDefault, 1);
 
 
 	
@@ -163,7 +169,7 @@ void Renderer::Frame()
 	}
 
 	// ------ Render Skinned Meshes ------ 
-
+	this->mDeviceContext->OMSetDepthStencilState(this->DSDefault, 5);
 	if (rotation > 0.01f || rotation < -0.01f)
 	{
 		animate = true;
@@ -220,8 +226,31 @@ void Renderer::Frame()
 		this->mDeviceContext->DrawIndexed(skinIndexCount[iter], 0, 0);
 		iter++;
 	}
+	
+	// ------ Render Skinned Mesh Outlines ------ 
+	this->mDeviceContext->OMSetRenderTargets(1, &this->mRenderTargetView, NULL);
+	//this->mDeviceContext->OMSetDepthStencilState(this->DSOutline, 0);
+	this->mDeviceContext->PSSetShaderResources(0, 1, &mOutlineStencilSRV);
+	this->mDeviceContext->PSSetSamplers(0, 0, NULL);
+	this->mDeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	this->mDeviceContext->RSSetState(RSCullNone);
+	this->mDeviceContext->OMSetBlendState(this->mDefaultBlendState,NULL, 0xffffffff);
 
+	// unbind all the buffers and input layout
+	this->mDeviceContext->IASetVertexBuffers(0, 0, NULL, 0, 0);
+	this->mDeviceContext->IASetVertexBuffers(1, 0, NULL, 0, 0);
+	this->mDeviceContext->IASetIndexBuffer(NULL, DXGI_FORMAT_R32_UINT, 0);
+	this->mDeviceContext->IASetInputLayout(NULL);
+	
+	
+	this->mDeviceContext->VSSetShader(this->mOutlineVertexShader, NULL, 0);
+	this->mDeviceContext->PSSetShader(this->mOutlinePixelShader, NULL, 0);
 
+	this->mDeviceContext->Draw(3, 0);
+	
+	ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
+	this->mDeviceContext->PSSetShaderResources(0, 1, nullSRV);
+	
 	HRESULT hr = this->mSwapChain->Present(0, 0);
 }
 
@@ -594,14 +623,14 @@ bool Renderer::Init()
 	depthStencilDesc.Height					= activeWindowRect.bottom - activeWindowRect.top;
 	depthStencilDesc.MipLevels				= 1;
 	depthStencilDesc.ArraySize				= 1;
-	depthStencilDesc.Format					= DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthStencilDesc.Format					= DXGI_FORMAT_R24G8_TYPELESS;
 
 	// 4x MSAA DISABLED CURRENTLY
 	depthStencilDesc.SampleDesc.Count		= 1;
 	//depthStencilDesc.SampleDesc.Quality		= numQualityLevels - 1;
 
 	depthStencilDesc.Usage					= D3D11_USAGE_DEFAULT;
-	depthStencilDesc.BindFlags				= D3D11_BIND_DEPTH_STENCIL;
+	depthStencilDesc.BindFlags				= D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 	depthStencilDesc.CPUAccessFlags			= 0;
 	depthStencilDesc.MiscFlags				= 0;
 
@@ -616,9 +645,14 @@ bool Renderer::Init()
 		return false;
 	}
 
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc;
+	ZeroMemory(&dsvDesc, sizeof(D3D11_DEPTH_STENCIL_VIEW_DESC));
+	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+
 	hr = this->mDevice->CreateDepthStencilView(
 		this->mDepthStencilBuffer,
-		0,
+		&dsvDesc,
 		&this->mDepthStencilView
 	);
 	if (FAILED(hr))
@@ -783,6 +817,32 @@ bool Renderer::CreateShadersAndInputLayout()
 	}
 
 
+	// Create input layout
+
+	D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
+	{
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
+	};
+
+	hr = mDevice->CreateInputLayout(
+		vertexDesc,
+		3,
+		vs_blob->GetBufferPointer(),
+		vs_blob->GetBufferSize(),
+		&this->mDefaultInputLayout
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateInputLayout failed", 0, 0);
+		return false;
+	}
+	// Set the input layout
+	this->mDeviceContext->IASetInputLayout(this->mDefaultInputLayout);
+
+
 
 	// Compile skinning VS
 
@@ -820,33 +880,6 @@ bool Renderer::CreateShadersAndInputLayout()
 		return false;
 	}
 
-
-
-	// Create input layout
-
-	D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
-	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
-	};
-
-	hr = mDevice->CreateInputLayout(
-		vertexDesc,
-		3,
-		vs_blob->GetBufferPointer(),
-		vs_blob->GetBufferSize(),
-		&this->mDefaultInputLayout
-	);
-
-	if (FAILED(hr))
-	{
-		MessageBox(0, L"CreateInputLayout failed", 0, 0);
-		return false;
-	}
-	// Set the input layout
-	this->mDeviceContext->IASetInputLayout(this->mDefaultInputLayout);
-
 	// Create input layout for skinning VS
 	D3D11_INPUT_ELEMENT_DESC skinVertexDesc[] =
 	{
@@ -864,6 +897,44 @@ bool Renderer::CreateShadersAndInputLayout()
 		skin_vs_blob->GetBufferSize(),
 		&this->mSkinInputLayout
 	);
+
+	// Compile outline VS
+
+	ID3DBlob* outline_vs_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"OutlineVS.hlsl",
+		nullptr,
+		nullptr,
+		"VS",
+		"vs_5_0",
+		0,
+		0,
+		&outline_vs_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Outline Vertex Shader failed", 0, 0);
+		return false;
+	}
+
+	// Create outline VS
+
+	hr = this->mDevice->CreateVertexShader(
+		outline_vs_blob->GetBufferPointer(),
+		outline_vs_blob->GetBufferSize(),
+		nullptr,
+		&mOutlineVertexShader
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateVertexShader failed for outline VS", 0, 0);
+		return false;
+	}
+
+
 
 
 	// Compile texture pixel shader
@@ -929,6 +1000,40 @@ bool Renderer::CreateShadersAndInputLayout()
 		MessageBox(0, L"CreatePixelShader for DefaultPS failed", 0, 0);
 		return false;
 	}
+
+	// Compile outline pixel shader
+	ps_blob = nullptr;
+	hr = D3DCompileFromFile(
+		L"OutlinePS.hlsl",
+		nullptr,
+		nullptr,
+		"PS",
+		"ps_5_0",
+		0,
+		0,
+		&ps_blob,
+		nullptr
+	);
+
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"D3DCompileFromFile Compiling Outline Pixel Shader failed", 0, 0);
+		return false;
+	}
+	// Create Pixel shader
+	hr = this->mDevice->CreatePixelShader(
+		ps_blob->GetBufferPointer(),
+		ps_blob->GetBufferSize(),
+		nullptr,
+		&mOutlinePixelShader
+	);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreatePixelShader for OutlinePS failed", 0, 0);
+		return false;
+	}
+
+
 
 	skin_vs_blob->Release();
 	vs_blob->Release();
@@ -1110,18 +1215,7 @@ bool Renderer::CreateCubeMap()
 	//SMViewDesc.TextureCube.MipLevels = SMTextureDesc.MipLevels;
 	//SMViewDesc.TextureCube.MostDetailedMip = 0;
 
-	// Create rasterizer state with culling off
-	D3D11_RASTERIZER_DESC cmdesc;
-	ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));
-	cmdesc.FillMode = D3D11_FILL_SOLID;
-	cmdesc.CullMode = D3D11_CULL_NONE;
-	cmdesc.FrontCounterClockwise = true;
-	hr = this->mDevice->CreateRasterizerState(&cmdesc, &RSCullNone);
-	if (FAILED(hr))
-	{
-		MessageBox(0, L"CreateRasterizerState for Skybox failed", 0, 0);
-		return false;
-	}
+
 
 
 
@@ -1154,7 +1248,7 @@ bool Renderer::CreateDepthStencils()
 	descDepth.Height = backBufferSurfaceDesc.Height;
 	descDepth.MipLevels = 1;
 	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDepth.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	descDepth.SampleDesc.Count = 1;
 	descDepth.SampleDesc.Quality = 0;
 	descDepth.Usage = D3D11_USAGE_DEFAULT;
@@ -1179,8 +1273,9 @@ bool Renderer::CreateDepthStencils()
 
 	// Stencil operations if pixel is front-facing
 	dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-	dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
-	dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+	// Write to the stencil on pass
+	dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
 	dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 
 	// Stencil operations if pixel is back-facing
@@ -1191,6 +1286,119 @@ bool Renderer::CreateDepthStencils()
 
 	// Create depth stencil state
 	this->mDevice->CreateDepthStencilState(&dsDesc, &DSDefault);
+
+	D3D11_DEPTH_STENCIL_DESC dsDescOutline;
+
+	dsDescOutline.DepthEnable = true;
+	dsDescOutline.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dsDescOutline.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+	dsDescOutline.StencilEnable = true;
+	dsDescOutline.StencilReadMask = 0xFF;
+	dsDescOutline.StencilWriteMask = 0xFF;
+
+	// It does not matter what we write since we are not using the values after this step.
+	// In other words, we are only using the values to mask pixels.
+	dsDescOutline.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDescOutline.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDescOutline.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	// The stencil test passes if the passed parameter is equal to value in the buffer.
+	dsDescOutline.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+
+	// We do not care about back-facing pixels.
+	dsDescOutline.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDescOutline.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	dsDescOutline.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsDescOutline.BackFace.StencilFunc = D3D11_COMPARISON_NEVER;
+
+	this->mDevice->CreateDepthStencilState(&dsDescOutline, &DSOutline);
+	return true;
+}
+
+bool Renderer::CreateShaderResourceViews()
+{
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	D3D11_TEX2D_SRV tex2dsrv;
+	ZeroMemory(&tex2dsrv, sizeof(D3D11_TEX2D_SRV));
+	tex2dsrv.MostDetailedMip = 0;
+	tex2dsrv.MipLevels = 1;
+	srvDesc.Texture2D = tex2dsrv;
+	srvDesc.Format = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	HRESULT hr;
+	hr = this->mDevice->CreateShaderResourceView(
+		mDepthStencilBuffer,
+		&srvDesc,
+		&this->mOutlineStencilSRV
+		);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateShaderResourceView for Stencil SRV failed", 0, 0);
+		return false;
+	}
+
+
+	return true;
+}
+
+bool Renderer::CreateRasterizerStates()
+{
+	HRESULT hr;
+	// Create rasterizer state with culling off
+	D3D11_RASTERIZER_DESC cmdesc;
+	ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));
+	cmdesc.FillMode = D3D11_FILL_SOLID;
+	cmdesc.CullMode = D3D11_CULL_NONE;
+	cmdesc.FrontCounterClockwise = true;
+	hr = this->mDevice->CreateRasterizerState(&cmdesc, &RSCullNone);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateRasterizerState for Skybox failed", 0, 0);
+		return false;
+	}
+
+	cmdesc.FillMode = D3D11_FILL_WIREFRAME;
+	cmdesc.CullMode = D3D11_CULL_BACK;
+	hr = this->mDevice->CreateRasterizerState(&cmdesc, &RSWireframe);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateRasterizerState for Wireframe failed", 0, 0);
+		return false;
+	}
+
+	return true;
+}
+
+bool Renderer::CreateBlendStates()
+{
+
+
+	D3D11_BLEND_DESC blendDesc;
+	ZeroMemory(&blendDesc, sizeof(D3D11_BLEND_DESC));
+	//blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	//blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	//blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	//blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	//blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	//blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	//blendDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f;
+
+	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = 0x0f;
+	
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	HRESULT hr = this->mDevice->CreateBlendState(&blendDesc, &this->mDefaultBlendState);
+	if (FAILED(hr))
+	{
+		MessageBox(0, L"CreateBlendState for mDefaultBlendState failed", 0, 0);
+		return false;
+	}
 	return true;
 }
 
