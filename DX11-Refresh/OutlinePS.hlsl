@@ -19,12 +19,12 @@ PSOut PS(VSOut input) : SV_Target
 	int stencil_sum = 0;
 
 	stencil_sum -= 1024 * StencilTexture.Load(int3(int2(input.Pos.x, input.Pos.y), 0)).y;
-	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 3.0f, input.Pos.y + 0.0f), 0)).y;
-	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 0.0f, input.Pos.y + 3.0f), 0)).y;
-	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y + 0.0f), 0)).y;
-	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 0.0f, input.Pos.y - 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 3.0f, input.Pos.y + 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 3.0f, input.Pos.y - 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y + 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y - 3.0f), 0)).y;
 
-	float4 finalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	float4 final_color = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	if (stencil_sum >= 105)
 	{
 		finalColor = float4(0.5f, 0.8f, 0.0f, 1.0f);
