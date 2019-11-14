@@ -16,6 +16,7 @@ struct VSOut
 	float4 Color : COLOR;
 	float2 UV	 : TEXCOORD0;
 	float3 worldPos : POSITION0;
+	uint outlineStencilValue : STENCILVALUE;
 };
 
 VSOut VS(VSIn input)
@@ -26,5 +27,6 @@ VSOut VS(VSIn input)
 	output.UV = input.UV;
 	// Used for normal testing purposes to assign colour in the pixel shader
 	output.worldPos = input.Normal;
+	output.outlineStencilValue = 0;
 	return output;
 }

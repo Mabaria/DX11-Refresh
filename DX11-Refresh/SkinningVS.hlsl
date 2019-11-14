@@ -26,6 +26,7 @@ struct VSOut
 	float4 Color : COLOR;
 	float2 UV	 : TEXCOORD0;
 	float3 worldPos : POSITION0;
+	uint outlineStencilValue : STENCILVALUE;
 };
 
 
@@ -51,5 +52,6 @@ VSOut SKIN_VS(SKIN_VSIn input)
 	output.Color = float4(input.Normal, 1.0f);
 	// Used for normal testing purposes to assign colour in the pixel shader
 	output.worldPos = norm;
+	output.outlineStencilValue = 5;
 	return output;
 }

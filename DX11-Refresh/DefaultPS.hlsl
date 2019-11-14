@@ -4,27 +4,20 @@ struct VSOut
 	float4 Color : COLOR;
 	float2 UV	 : TEXCOORD0;
 	float3 worldPos : POSITION0;
+	uint outlineStencilValue : STENCILVALUE;
 };
 
 struct PSOut
 {
-	float4 Color;
+	float4 BackBuffer			: SV_TARGET0;
+	uint OutlineBuffer			: SV_TARGET1;
 };
 
-Texture2D ObjTexture;
-SamplerState MeshTextureSampler
-{
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = Wrap;
-	AddressV = Wrap;
-};
 
-PSOut PS(VSOut input) : SV_Target
+PSOut PS(VSOut input)
 {
 	PSOut output;
-//output.Color = input.Color;
-//output.Color = ObjTexture.Sample(MeshTextureSampler, input.UV);
-output.Color = float4(input.Color.x, input.Color.x, input.Color.x, 1.0f);
-
+	output.BackBuffer	= float4(input.Color.x, input.Color.x, input.Color.x, 1.0f);
+	output.OutlineBuffer = input.outlineStencilValue;
 return output;
 }
