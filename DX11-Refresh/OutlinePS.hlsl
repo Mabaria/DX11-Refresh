@@ -24,6 +24,11 @@ PSOut PS(VSOut input) : SV_Target
 	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y + 3.0f), 0)).y;
 	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y - 3.0f), 0)).y;
 
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 3.0f, input.Pos.y + 0.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x + 0.0f, input.Pos.y - 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 0.0f, input.Pos.y + 3.0f), 0)).y;
+	stencil_sum += StencilTexture.Load(int3(int2(input.Pos.x - 3.0f, input.Pos.y - 0.0f), 0)).y;
+
 	float4 finalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	if (stencil_sum >= 105)
 	{
